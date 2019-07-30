@@ -785,7 +785,7 @@ class X12_5010_837P
             "*" . "1" .
             "*";
             if ($claim->referrerLastName()) {
-                $out .= $claim->referrerLastName;
+                $out .= $claim->referrerLastName();
             } else {
                 $log .= "*** Missing referrer last name.\n";
             }
