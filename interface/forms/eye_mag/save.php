@@ -215,7 +215,7 @@ if ($_REQUEST['AJAX_PREFS']) {
               VALUES
               ('PREFS','TOOLTIPS','Toggle Tooltips',?,'TOOLTIPS','79',?,'25')";
     sqlQuery($query, array($_SESSION['authId'], $_REQUEST['PREFS_TOOLTIPS']));
-    
+
     // These settings are sticky user preferences linked to a given page.
 // Could do ALL preferences this way instead of the modified extract above...
 // mdsupport - user_settings prefix
@@ -279,7 +279,7 @@ if ($_REQUEST['unlock'] === '1') {
     $query = "SELECT LOCKEDDATE from form_eye_locking WHERE ID=?";
     $lock = sqlQuery($query, array($form_id));
     echo $lock['LOCKEDDATE'];
-    
+
     exit;
 } else {
     $query = "SELECT LOCKED,LOCKEDBY,LOCKEDDATE from form_eye_locking WHERE ID=?";
@@ -354,10 +354,10 @@ if ($_REQUEST["mode"] == "new") {
             unlink($file);
         }
 
-        $sql = "DELETE from categories_to_documents where document_id IN (SELECT id from documents where documents.url like '%" . $filename . "')";
-        sqlQuery($sql);
-        $sql = "DELETE from documents where documents.url like '%" . $filename . "'";
-        sqlQuery($sql);
+        $sql = "DELETE from categories_to_documents where document_id IN (SELECT id from documents where documents.url like ?)";
+        sqlQuery($sql, ['%'.$filename]);
+        $sql = "DELETE from documents where documents.url like ?";
+        sqlQuery($sql, ['%'.$filename]);
         // We want to overwrite so only one PDF is stored per form/encounter
         $config_mpdf = array(
             'tempDir' => $GLOBALS['MPDF_WRITE_DIR'],
@@ -399,7 +399,6 @@ if ($_REQUEST["mode"] == "new") {
         global $web_root, $webserver_root;
         $content = ob_get_clean();
         // Fix a nasty html2pdf bug - it ignores document root!
-        // TODO - now use mPDF, so should test if still need this fix
         $i = 0;
         $wrlen = strlen($web_root);
         $wsrlen = strlen($webserver_root);
@@ -556,7 +555,7 @@ if ($_REQUEST["mode"] == "new") {
             exit;
         } else {
             if ($form_type == 'ROS') { //ROS
-                $query = "UPDATE form_eye_ros set ROSGENERAL=?,ROSHEENT=?,ROSCV=?,ROSPULM=?,ROSGI=?,ROSGU=?,ROSDERM=?,ROSNEURO=?,ROSPSYCH=?,ROSMUSCULO=?,ROSIMMUNO=?,ROSENDOCRINE=?,ROSCOMMENTS=?.pid=? where id=?";
+                $query = "UPDATE form_eye_ros set ROSGENERAL=?,ROSHEENT=?,ROSCV=?,ROSPULM=?,ROSGI=?,ROSGU=?,ROSDERM=?,ROSNEURO=?,ROSPSYCH=?,ROSMUSCULO=?,ROSIMMUNO=?,ROSENDOCRINE=?,ROSCOMMENTS=?,pid=? where id=?";
                 sqlStatement($query, array($_REQUEST['ROSGENERAL'], $_REQUEST['ROSHEENT'], $_REQUEST['ROSCV'], $_REQUEST['ROSPULM'], $_REQUEST['ROSGI'], $_REQUEST['ROSGU'], $_REQUEST['ROSDERM'], $_REQUEST['ROSNEURO'], $_REQUEST['ROSPSYCH'], $_REQUEST['ROSMUSCULO'], $_REQUEST['ROSIMMUNO'], $_REQUEST['ROSENDOCRINE'], $_REQUEST['ROSCOMMENTS'],$pid, $form_id));
                 $PMSFH = build_PMSFH($pid);
                 send_json_values($PMSFH);
@@ -801,6 +800,13 @@ if ($_REQUEST["mode"] == "new") {
         exit;
     }
 
+
+    if ($_REQUEST['action'] == 'new_pharmacy') {
+        $query = "UPDATE patient_data set pharmacy_id=? where pid=?";
+        sqlStatement($query, array($_POST['new_pharmacy'], $pid));
+        echo "Pharmacy updated";
+        exit;
+    }
     /*** END CODE to DEAL WITH PMSFH/ISUUE_TYPES  ****/
     //Update the visit status for this appointment (from inside the Coding Engine)
     //we also have to update the flow board...  They are not linked automatically.
@@ -1203,10 +1209,10 @@ if ($_REQUEST['canvas']) {
         unlink($file);
     }
 
-    $sql = "DELETE from categories_to_documents where document_id IN (SELECT id from documents where documents.url like '%" . $filename . "')";
-    sqlQuery($sql);
-    $sql = "DELETE from documents where documents.url like '%" . $filename . "'";
-    sqlQuery($sql);
+    $sql = "DELETE from categories_to_documents where document_id IN (SELECT id from documents where documents.url like ?)";
+    sqlQuery($sql, ['%'.$filename]);
+    $sql = "DELETE from documents where documents.url like ?";
+    sqlQuery($sql, ['%'.$filename]);
     $return = addNewDocument($filename, $type, $_POST["imgBase64"], 0, $size, $_SESSION['authUserID'], $pid, $category_id);
     $doc_id = $return['doc_id'];
     $sql = "UPDATE documents set encounter_id=? where id=?"; //link it to this encounter

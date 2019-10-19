@@ -7,9 +7,11 @@
 * @author    Terry Hill <terry@lilysystems.com>
 * @author    Brady Miller <brady.g.miller@gmail.com>
 * @author    Jerry Padgett <sjpadgett@gmail.com>
+* @author    Sherwin Gaddis <sherwingaddis@gmail.com>
 * @copyright Copyright (c) 2016 Terry Hill <terry@lillysystems.com>
 * @copyright Copyright (c) 2017-2019 Brady Miller <brady.g.miller@gmail.com>
 * @copyright Copyright (c) 2018-2019 Jerry Padgett <sjpadgett@gmail.com>
+* @copyright Copyright (c) 2019 Sherwin Gaddis <sherwingaddis@gmail.com>
 * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
 */
 
@@ -91,6 +93,11 @@ $missing_mods_only = (isset($_POST['missing_mods_only']) && !empty($_POST['missi
 
 $left_margin = isset($_POST["left_margin"]) ? $_POST["left_margin"] : $GLOBALS['cms_left_margin_default'];
 $top_margin = isset($_POST["top_margin"]) ? $_POST["top_margin"] : $GLOBALS['cms_top_margin_default'];
+if ($left_margin + 0 === 20 && $top_margin + 0 === 24) {
+    // defaults are flipped. No easy way to reset existing. Global defaults fixed.
+    $left_margin = '24';
+    $top_margin = '20';
+}
 if ($ub04_support) {
     $left_ubmargin = isset($_POST["left_ubmargin"]) ? $_POST["left_ubmargin"] : $GLOBALS['left_ubmargin_default'];
     $top_ubmargin = isset($_POST["top_ubmargin"]) ? $_POST["top_ubmargin"] : $GLOBALS['top_ubmargin_default'];
@@ -109,14 +116,158 @@ $partners = $x->_utility_array($x->x12_partner_factory());
 
 <?php Header::setupHeader(['datetime-picker', 'common']); ?>
 <style>
-    /*.subbtn { margin-top:3px; margin-bottom:3px; margin-left:2px; margin-right:2px }*/
     .btn-group-pinch > .btn:nth-last-child(4):not(.dropdown-toggle) {
         border-top-right-radius: 3px !Important;
         border-bottom-right-radius: 3px !Important;
     }
+    .modal {
+        overflow-y: auto;
+    }
+    .modal-open {
+        overflow: auto;
+    }
+    .modal-open[style] {
+        padding-right: 0px !important;
+    }
 </style>
 <script>
     var partners = <?php echo json_encode($partners); ?>;
+
+    // next set of 4 functions are for a wait confirm action then submit.
+    // I wrote this a little more involved than it needs to be
+    // to example the pattern. Ideal submit part would be via a fetch or ajax
+    // then could do refresh or after submit actions.
+    //
+    function doSubmit(action) {
+        top.restoreSession();
+        return new Promise(function (resolve, reject) {
+            if (action !== 'btn-continue') {
+                var showLog = function () {
+                    $("#view-log-link").click();
+                };
+                // Pre-open a dialog and target dialogs iframe for content from billing_process
+                // text or PDF.
+                dlgopen('', 'ValidateShowBatch', 875, 500, false, '', {
+                    buttons: [
+                        {text: '<?php echo xlt("Logs"); ?>', close: false, style: 'default btn-xs', click: showLog},
+                        {text: '<i class="fa fa-thumbs-up"></i>&nbsp;<?php echo xlt("Close"); ?>', close: true, style: 'default btn-xs'}
+                    ],
+                    //onClosed: 'SubmitTheScreen', // future and/or example of onClosed.
+                    sizeHeight: 'full'
+                });
+                // target content from submit to dialogs iframe
+                document.update_form.target = 'ValidateShowBatch';
+            }
+            // Now submit form and populate dialog.
+            document.update_form.submit();
+            // go fulfill the promise.
+            resolve(true);
+        });
+    }
+    function doConfirm(Message) {
+        placeModal(Message);
+        return new Promise(function(resolve, reject){
+            $('#confirmDialog').modal('show');
+            $('#confirmDialog .btn-continue').click(function(){
+                $(this).off();
+                resolve("btn-continue");
+            });
+            $('#confirmDialog .btn-clear').click(function(){
+                $(this).off();
+                resolve("btn-clear");
+            });
+            $('#confirmDialog .btn-validate').click(function(){
+                $(this).off();
+                resolve("btn-validate");
+            });
+            $('#confirmDialog .btn-danger').click(function(){
+                $(this).off();
+                reject("btn-cancel");
+            });
+        });
+    }
+    async function confirmActions(e, mType) {
+        e.preventDefault();
+        let Message = "";
+        let ClaimCount = 0;
+        for (var CheckBoxBillingIndex = 0; ; CheckBoxBillingIndex++) {
+            CheckBoxBillingObject = document.getElementById('CheckBoxBilling' +
+                CheckBoxBillingIndex);
+            if (!CheckBoxBillingObject) break;
+            if (CheckBoxBillingObject.checked) {
+                ++ClaimCount;
+            }
+        }
+        let addOn = <?php echo xlj('click View Log and review for errors.'); ?>;
+        if (mType == '1') {
+            Message = <?php echo xlj('After saving your batch'); ?> + ", " + addOn;
+        } else if (mType == '2') {
+            Message = <?php echo xlj('After saving the PDF'); ?> + ", " + addOn;
+        } else if (mType == '3') {
+            Message = <?php echo xlj('After saving the TEXT file'); ?> + "(s), " + addOn;
+        }
+        Message += "<br/><br/>" + <?php echo xlj('Validate and Clear validates then sets claims status only, to billed, leaving billing process unaltered and claim submission resets to unsubmitted.'); ?>;
+        Message += "<br/><br/>" + <?php echo xlj('Validate Only does a claim validation dry run for errors leaving claim status unaltered.'); ?>;
+        Message += "<br/><br/>" + <?php echo xlj('Continue completes selected billing option normally.'); ?>;
+        Message += "<br/><br/>" + <?php echo xlj('Total of'); ?> + ' ' + ClaimCount + ' ' + <?php echo xlj('claims selected.'); ?> + "\n";
+        let sName = e.currentTarget.name;
+        // wait for confirm result
+        await doConfirm(Message).then(action => {
+            console.log(sName, action);
+            // set post button for form submit
+            $('<input>').attr({
+                type: 'hidden',
+                id: "submitTask",
+                name: sName,
+                value: 'true'
+            }).prependTo(document.update_form);
+            // passing confirm clicked button
+            $('<input>').attr({
+                type: 'hidden',
+                id: "confirmTask",
+                name: action,
+                value: 1
+            }).prependTo(document.update_form);
+            return action;
+        }).then(action => {
+            // submit update_form then cleanup
+            doSubmit(action).then( function () {
+                $("#submitTask").remove();
+                $("#confirmTask").remove();
+            });
+        }).catch(function(why){
+            // cancel clicked in confirm. do nothing...
+            console.warn("Task was canceled", why);
+        });
+
+        return false;
+    }
+    function placeModal(Message) {
+        let mConfirm = <?php echo xlj('Please Confirm') ?>;
+        let mClear = <?php echo xlj('Validate and Clear') ?>;
+        let mVal = <?php echo xlj('Validate Only') ?>;
+        let mCont = <?php echo xlj('Continue') ?>;
+        let mCancel = <?php echo xlj('Cancel') ?>;
+        let dModal = "<div class='modal fade' id='confirmDialog' aria-hidden='true'><div class='modal-dialog'><div class='modal-content'>" +
+            "<div class='modal-header'><h4 class='modal-title'>"+mConfirm+"</h4></div><div class='modal-body'>" +
+            "<label>"+Message+"</label></div><div class='modal-footer'>" +
+            "<button type='button' class='btn btn-default btn-clear' data-dismiss='modal'>"+mClear+"</button>" +
+            "<button type='button' class='btn btn-default btn-validate' data-dismiss='modal'>"+mVal+"</button>" +
+            "<button type='button' class='btn btn-default btn-continue' data-dismiss='modal'>"+mCont+"</button>" +
+            "<a class='btn btn-danger' data-dismiss='modal'>"+mCancel+"</a>" +
+            "</div></div></div></div>";
+
+        $("body").append(dModal);
+
+        $('#confirmDialog').on('hidden.bs.modal', function (e) {
+            // remove modal
+            $(this).remove();
+            console.log("Confirm Modal Removed");
+            // remove this event for next time.
+            $(this).off(e);
+        });
+    }
+
     function onNewPayer(oEvent) {
         let p = oEvent.target.options[event.target.selectedIndex].dataset.partner;
         let partnerSelect = oEvent.target.options[event.target.selectedIndex].dataset.partner;
@@ -158,14 +309,14 @@ $partners = $x->_utility_array($x->x12_partner_factory());
         f.bn_x12_support.disabled = !can_generate;
             <?php if ($GLOBALS['support_encounter_claims']) { ?>
         f.bn_x12_encounter.disabled = !can_generate;
-        <?php } ?>
+            <?php } ?>
         f.bn_process_hcfa_support.disabled = !can_generate;
             <?php if ($GLOBALS['preprinted_cms_1500']) { ?>
         f.bn_process_hcfa_form.disabled = !can_generate;
-        <?php } ?>
+            <?php } ?>
             <?php if ($GLOBALS['ub04_support']) { ?>
         f.bn_process_ub04_support.disabled = !can_generate;
-        <?php } ?>
+            <?php } ?>
         f.bn_hcfa_txt_file.disabled = !can_generate;
         f.bn_reopen.disabled = !can_bill;
         <?php } ?>
@@ -338,37 +489,6 @@ $partners = $x->_utility_array($x->x12_partner_factory());
             }
         }
     }
-
-    function MarkAsCleared(Type) {
-        CheckBoxBillingCount = 0;
-        for (var CheckBoxBillingIndex = 0; ; CheckBoxBillingIndex++) {
-            CheckBoxBillingObject = document.getElementById('CheckBoxBilling' +
-                CheckBoxBillingIndex);
-            if (!CheckBoxBillingObject) break;
-            if (CheckBoxBillingObject.checked) {
-                ++CheckBoxBillingCount;
-            }
-        }
-        if (Type == 1) {
-            Message = <?php echo xlj('After saving your batch, click[View Log] to check for errors.'); ?>;
-        }
-        if (Type == 2) {
-            Message = <?php echo xlj('After saving the PDF, click[View Log] to check for errors.'); ?>;
-        }
-        if (Type == 3) {
-            Message = <?php echo xlj('After saving the TEXT file(s), click[View Log] to check for errors.'); ?>;
-        }
-        if (confirm(Message + "\n\n\n" + <?php echo xlj('Total'); ?> + ' ' +
-                CheckBoxBillingCount + ' ' +
-                <?php echo xlj('Selected'); ?> + "\n" +
-                <?php echo xlj('Would You Like them to be Marked as Cleared.'); ?> + "\n" +
-                <?php echo xlj('Click OK to Clear or Cancel to continue processing.'); ?>
-            )) {
-            document.getElementById('HiddenMarkAsCleared').value = 'yes';
-        } else {
-            document.getElementById('HiddenMarkAsCleared').value = '';
-        }
-    }
 </script>
 <?php require_once "$srcdir/../interface/reports/report.script.php"; ?>
 <!-- Criteria Section common javascript page-->
@@ -413,6 +533,9 @@ $partners = $x->_utility_array($x->x12_partner_factory());
     ul > li {
         line-height: 1.86em;
     }
+    ul {
+        list-style-type: none;
+    }
     a, a:visited, a:hover {
         text-decoration: none;
         color: #000000;
@@ -443,11 +566,6 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
 <div class="row">
     <div class="col-sm-12">
         <div class="page-header">
-            <!--<h2>
-                <?php echo xlt('Billing Manager') ?> <i id="exp_cont_icon" class="fa <?php echo attr($expand_icon_class);?> oe-superscript-small expand_contract"
-                title="<?php echo attr($expand_title); ?>" aria-hidden="true"></i> <i id="show_hide" class="fa fa-eye-slash fa-2x small"
-                title="<?php echo xla('Click to Hide'); ?>"></i>
-            </h2>-->
             <?php echo $oemr_ui->pageHeading() . "\r\n"; ?>
         </div>
     </div>
@@ -618,8 +736,12 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                            title='<?php echo xla('See messages from the last set of generated claims'); ?>'><strong><?php echo xlt('View Log'); ?></strong></a>
                                     </li>
                                 <?php } ?>
+                                <li><a href="<?php echo $webroot ?>/interface/billing/customize_log.php" rel="noopener" target="_blank" onclick="top.restoreSession()"><strong><?php  echo xlt('Tab Log') ?></strong></a>
+                                </li>
                                 <li><a class="link_submit"
                                        href="JavaScript:void(0);" onclick="select_all(); return false;"><strong><?php echo xlt('Select All'); ?></strong></a>
+                                </li>
+                                <li><a  id="clear-log" href="#" title='<?php xla('Clear the log'); ?>'><strong><?php echo xlt('Clear Log') ?></strong></a>
                                 </li>
                             </ul>
                             <ul>
@@ -632,90 +754,86 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
 </div>
 <div class="row">
     <div class="col-sm-12">
-        <form class="form-inline" name='update_form' method='post' action='billing_process.php' onsubmit='return top.restoreSession()' style="display:inline">
+        <form class="form-inline" name='update_form' method='post' action='billing_process.php' style="display:inline">
             <input type="hidden" name="csrf_token_form" value="<?php echo attr(CsrfUtils::collectCsrfToken()); ?>" />
             <?php //can change position of buttons by creating a class 'position-override' and adding rule text-alig:center or right as the case may be in individual stylesheets ?>
             <div class="form-group clearfix">
                 <div class="btn-group btn-group-pinch position-override" role="group">
                     <div class="btn-group">
-                        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"
+                        <button type="button" class="btn btn-link dropdown-toggle" data-toggle="dropdown"
                                 name="bn_x12_support"
-                                title="<?php echo xla('A claim must be selected to enable this menu.') ?>"><?php echo xla('X12 OPTIONS') ?>
+                                title=""><?php echo xla('X12 OPTIONS') ?>
                             <span class="caret"></span></button>
                         <ul class="dropdown-menu" role="menu">
                             <?php if (file_exists($EXPORT_INC)) { ?>
                                 <li>
-                                    <button type="submit" data-open-popup="true" class="btn btn-default btn-download"
+                                    <button type="submit" data-open-popup="true" class="btn btn-link btn-download"
                                             name="bn_external"
                                             title="<?php echo xla('Export to external billing system') ?>"
                                             value="<?php echo xla("Export Billing") ?>"><?php echo xlt("Export Billing") ?></button>
                                 </li>
                                 <li>
-                                    <button type="submit" data-open-popup="true" class="btn btn-default btn-download"
+                                    <button type="submit" data-open-popup="true" class="btn btn-link btn-download"
                                             name="bn_mark"
                                             title="<?php echo xla('Mark as billed but skip billing') ?>"><?php echo xlt("Mark as Cleared") ?></button>
                                 </li>
                             <?php } else { ?>
                                 <li>
-                                    <button type="submit" class="btn btn-default btn-download" name="bn_x12"
-                                            onclick="MarkAsCleared(1)"
+                                    <button type="button" class="btn btn-link btn-download" name="bn_x12" onclick="confirmActions(event, '1');"
                                             title="<?php echo xla('Generate and download X12 batch') ?>"><?php echo xlt('Generate X12') ?></button>
                                 </li>
                             <?php } ?>
                             <?php if ($GLOBALS['ub04_support']) { ?>
                                 <li>
-                                    <button type="submit" class="btn btn-default btn-download" name="bn_ub04_x12"
+                                    <button type="submit" class="btn btn-link btn-download" name="bn_ub04_x12"
                                             title="<?php echo xla('Generate Institutional X12 837I') ?>"><?php echo xlt('Generate X12 837I') ?></button>
                                 </li>
                             <?php } ?>
                             <?php if ($GLOBALS['support_encounter_claims']) { ?>
                                 <li>
-                                    <button type="submit" class="btn btn-default btn-download" name="bn_x12_encounter"
-                                            onclick="MarkAsCleared(1)"
+                                    <button type="submit" class="btn btn-link btn-download" name="bn_x12_encounter" onclick="confirmActions(event, '1');"
                                             title="<?php echo xla('Generate and download X12 encounter claim batch') ?>"><?php echo xlt('Generate X12 Encounter') ?></button>
                                 </li>
                             <?php } ?>
                         </ul>
                     </div>
                     <div class="btn-group">
-                        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"
+                        <button type="button" class="btn btn-link dropdown-toggle" data-toggle="dropdown"
                                 name="bn_process_hcfa_support"
-                                title="<?php echo xla('A claim must be selected to enable this menu.') ?>"><?php echo xlt('HCFA FORM') ?>
+                                title=""><?php echo xlt('HCFA FORM') ?>
                             <span class="caret"></span></button>
                         <ul class="dropdown-menu" role="menu">
                             <li>
-                                <button type="submit" class="btn btn-default btn-download" name="bn_process_hcfa"
-                                        onclick="MarkAsCleared(2)"
+                                <button type="button" class="btn btn-link btn-download" name="bn_process_hcfa" onclick="confirmActions(event, '2');"
                                         title="<?php echo xla('Generate and download CMS 1500 paper claims') ?>"><?php echo xlt('CMS 1500 PDF') ?></button>
                             </li>
                             <?php if ($GLOBALS['preprinted_cms_1500']) { ?>
                                 <li>
-                                    <button type="submit" class="btn btn-default btn-download"
-                                            name="bn_process_hcfa_form" onclick="MarkAsCleared(2)"
+                                    <button type="button" class="btn btn-link btn-download" onclick="confirmActions(event, '2');"
+                                            name="bn_process_hcfa_form"
                                             title="<?php echo xla('Generate and download CMS 1500 paper claims on Preprinted form') ?>"><?php echo xlt('CMS 1500 incl FORM') ?></button>
                                 </li>
                             <?php } ?>
                             <li>
-                                <button type="submit" class="btn btn-default btn-download" name="bn_hcfa_txt_file"
-                                        onclick="MarkAsCleared(3)"
+                                <button type="button" class="btn btn-link btn-download" name="bn_hcfa_txt_file" onclick="confirmActions(event, '3');"
                                         title="<?php echo xla('Making batch text files for uploading to Clearing House and will mark as billed') ?>"><?php echo xlt('CMS 1500 TEXT') ?></button>
                             </li>
                         </ul>
                     </div>
                     <?php if ($GLOBALS['ub04_support']) { ?>
                         <div class="btn-group">
-                            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown"
+                            <button type="button" class="btn btn-link dropdown-toggle" data-toggle="dropdown"
                                     name="bn_process_ub04_support"
-                                    title="<?php echo xla('A claim must be selected to enable this menu.') ?>"><?php echo xlt('UB04 FORM') ?>
+                                    title=""><?php echo xlt('UB04 FORM') ?>
                                 <span class="caret"></span></button>
                             <ul class="dropdown-menu" role="menu">
                                 <li>
-                                    <button type="submit" class="btn btn-default btn-download"
+                                    <button type="submit" class="btn btn-link btn-download"
                                             name="bn_process_ub04_form"
                                             title="<?php echo xla('Generate and download UB-04 CMS1450 with form') ?>"><?php echo xlt('UB04 FORM PDF') ?></button>
                                 </li>
                                 <li>
-                                    <button type="submit" class="btn btn-default btn-download" name="bn_process_ub04"
+                                    <button type="submit" class="btn btn-link btn-download" name="bn_process_ub04"
                                             title="<?php echo xla('Generate and download UB-04 CMS1450') ?>"><?php echo xlt('UB04 TEXT PDF') ?></button>
                                 </li>
                             </ul>
@@ -751,7 +869,6 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                     </div>
                 <?php } ?>
             </div>
-            <input id='HiddenMarkAsCleared' name='HiddenMarkAsCleared' type='hidden' value="">
             <input name='mode' type='hidden' value="bill">
             <input name='authorized' type='hidden' value="<?php echo attr($my_authorized); ?>">
             <input name='unbilled' type='hidden' value="<?php echo attr($unbilled); ?>">
@@ -862,9 +979,9 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                         $mmo_num_charges = 0;
 
                         foreach ($ret as $iter) {
-                        // We include encounters here that have never been billed. However
-                        // if it had no selected billing items but does have non-selected
-                        // billing items, then it is not of interest.
+                            // We include encounters here that have never been billed. However
+                            // if it had no selected billing items but does have non-selected
+                            // billing items, then it is not of interest.
                             if (!$iter['id']) {
                                 $res = sqlQuery(
                                     "SELECT count(*) AS count FROM billing WHERE " .
@@ -884,8 +1001,8 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                             $this_encounter_id = $iter['enc_pid'] . "-" . $iter['enc_encounter'];
 
                             if ($last_encounter_id != $this_encounter_id) {
-                            // This dumps all HTML for the previous encounter.
-                            //
+                                // This dumps all HTML for the previous encounter.
+                                //
                                 if ($lhtml) {
                                     while ($rcount < $lcount) {
                                         $rhtml .= "<tr bgcolor='" . attr($bgcolor) . "'><td colspan='9'></td></tr>";
@@ -909,10 +1026,10 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                 $mmo_empty_mod = false;
                                 $mmo_num_charges = 0;
 
-                            // If there are ANY unauthorized items in this encounter and this is
-                            // the normal case of viewing only authorized billing, then skip the
-                            // entire encounter.
-                            //
+                                // If there are ANY unauthorized items in this encounter and this is
+                                // the normal case of viewing only authorized billing, then skip the
+                                // entire encounter.
+                                //
                                 $skipping = false;
                                 if ($my_authorized == '1') {
                                     $res = sqlQuery(
@@ -931,17 +1048,17 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                         continue;
                                     }
                                 }
-                            // Is there a MBO
-                            //
+                                // Is there a MBO
+                                //
                                 $mboid = sqlQuery("SELECT forms.form_id FROM forms WHERE forms.encounter = ? AND forms.authorized = 1 AND forms.formdir = 'misc_billing_options' AND forms.deleted != 1 LIMIT 1", array($iter['enc_encounter']));
                                 $iter['mboid'] = $mboid ? attr($mboid['form_id']) : 0;
 
                                 $name = getPatientData($iter['enc_pid'], "fname, mname, lname, pubpid, billing_note, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
 
-                            // Check if patient has primary insurance and a subscriber exists for it.
-                            // If not we will highlight their name in red.
-                            // TBD: more checking here.
-                            //
+                                // Check if patient has primary insurance and a subscriber exists for it.
+                                // If not we will highlight their name in red.
+                                // TBD: more checking here.
+                                //
                                 $res = sqlQuery(
                                     "SELECT count(*) AS count FROM insurance_data WHERE " .
                                     "pid = ? AND " .
@@ -963,10 +1080,10 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                 $ptname = $name['fname'] . " " . $name['lname'];
                                 $raw_encounter_date = date("Y-m-d", strtotime($iter['enc_date']));
                                 $billing_note = $name['billing_note'];
-                            // Add Encounter Date to display with "To Encounter" button 2/17/09 JCH
+                                // Add Encounter Date to display with "To Encounter" button 2/17/09 JCH
                                 $lhtml .= "<span class=bold><font color='" . attr($namecolor) . "'>" . text($ptname) . "</font></span><span class=small>&nbsp;(" . text($iter['enc_pid']) . "-" . text($iter['enc_encounter']) . ")</span>";
 
-                            // Encounter details are stored to javacript as array.
+                                // Encounter details are stored to javacript as array.
                                 $result4 = sqlStatement(
                                     "SELECT fe.encounter,fe.date,fe.billing_note,openemr_postcalendar_categories.pc_catname FROM form_encounter AS fe " .
                                     " LEFT JOIN openemr_postcalendar_categories ON fe.pc_catid=openemr_postcalendar_categories.pc_catid  WHERE fe.pid = ? ORDER BY fe.date DESC",
@@ -998,14 +1115,14 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                             </script>
                                 <?php
                                 $lhtml .= "<div class='button-group'>";
-                            // Not sure why the next section seems to do nothing except post "To Encounter" button 2/17/09 JCH
+                                // Not sure why the next section seems to do nothing except post "To Encounter" button 2/17/09 JCH
                                 $lhtml .= "<a class=\"btn btn-xs btn-default\" role=\"button\" " . "href=\"javascript:
                                 window.toencounter(" . attr_js($iter['enc_pid']) . "," . attr_js($name['pubpid']) . "," . attr_js($ptname) . "," . attr_js($iter['enc_encounter']) . "," . attr_js(oeFormatShortDate($raw_encounter_date)) . "," . attr_js(" ".xl('DOB').": ".oeFormatShortDate($name['DOB_YMD'])." ".xl('Age').": ".getPatientAge($name['DOB_YMD'])) . ");
                                 top.window.parent.left_nav.setPatientEncounter(EncounterIdArray[" . attr($iter['enc_pid']) . "],EncounterDateArray[" . attr($iter['enc_pid']) . "], CalendarCategoryArray[" . attr($iter['enc_pid']) . "]);
                                 if (top.tab_mode) { top.setEncounter(" . attr_js($iter['enc_encounter']) . "); }
                             \">" . xlt('Encounter') . " " . text(oeFormatShortDate($raw_encounter_date)) . "</a>";
 
-                            // Changed "To xxx" buttons to allow room for encounter date display 2/17/09 JCH
+                                // Changed "To xxx" buttons to allow room for encounter date display 2/17/09 JCH
                                 $lhtml .= "<a class=\"btn btn-xs btn-default\" role=\"button\" " . "href=\"javascript:window.topatient(" . attr_js($iter['enc_pid']) . "," . attr_js($name['pubpid']) . "," . attr_js($ptname) . "," . attr_js($iter['enc_encounter']) . "," . attr_js(oeFormatShortDate($raw_encounter_date)) . "," . attr_js(" ".xl('DOB').": ".oeFormatShortDate($name['DOB_YMD'])." ".xl('Age').": ".getPatientAge($name['DOB_YMD'])) . ");
                         top.window.parent.left_nav.setPatientEncounter(EncounterIdArray[" . attr($iter['enc_pid']) . "],EncounterDateArray[" . attr($iter['enc_pid']) . "], CalendarCategoryArray[" . attr($iter['enc_pid']) . "])\">" . xlt('Patient') . "</a>";
                                 $is_edited = $iter['mboid'] ? 'btn-success' : 'btn-default';
@@ -1187,7 +1304,7 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                 continue;
                             }
 
-                        // Collect info related to the missing modifiers test.
+                            // Collect info related to the missing modifiers test.
                             if ($iter['fee'] > 0) {
                                 ++$mmo_num_charges;
                                 $tmp = substr($iter['code'], 0, 3);
@@ -1236,7 +1353,7 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                 $rhtml .= text(oeFormatMoney($iter['fee']));
                             }
                             $rhtml .= "</span></td>\n";
-                            $rhtml .= '<td><span style="font-size:8pt;">&nbsp;&nbsp;&nbsp;';
+                            $rhtml .= '<td><span style="font-size:8pt; font-weight:900; background:#ffff9e">&nbsp;&nbsp;&nbsp;';
                             if ($iter['id']) {
                                 $rhtml .= getProviderName(empty($iter['provider_id']) ? text($iter['enc_provider_id']) : text($iter['provider_id']));
                             }
@@ -1253,7 +1370,7 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                 $rhtml .= text(oeFormatSDFT(strtotime($iter{"date"})));
                             }
                             $rhtml .= "</span></td>\n";
-                        // This error message is generated if the authorized check box is not checked
+                            // This error message is generated if the authorized check box is not checked
                             if ($iter['id'] && $iter['authorized'] != 1) {
                                 $rhtml .= "<td><span class=alert>" . xlt("Note: This code has not been authorized.") . "</span></td>\n";
                             } else {
@@ -1360,7 +1477,16 @@ if ($alertmsg) {
 $(function () {
     $("#view-log-link").click( function() {
         top.restoreSession();
-        dlgopen('customize_log.php', '_blank', 500, 400);
+        dlgopen('customize_log.php', '_blank', 750, 400);
+    });
+    $("#clear-log").click( function(){
+        var checkstr = confirm(<?php echo xlj("Do you really want to clear the log?"); ?>);
+        if(checkstr == true){
+            top.restoreSession();
+            dlgopen("clear_log.php?csrf_token_form=" + <?php echo js_escape(CsrfUtils::collectCsrfToken()); ?>, '_blank', 500, 400);
+        }else{
+            return false;
+        }
     });
 
     $('button[type="submit"]').click(function () {
@@ -1368,7 +1494,7 @@ $(function () {
         $(this).attr('data-clicked', true);
     });
 
-    $('form[name="update_form"]').submit(function (e) {
+    $('form[name="update_form"]').on('submit', function (e) {
         var clickedButton = $("button[type=submit][data-clicked='true'")[0];
         // clear clicked button indicator
         $('button[type="submit"]').attr('data-clicked', false);

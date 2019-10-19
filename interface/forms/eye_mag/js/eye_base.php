@@ -369,7 +369,7 @@ function create_task(to_id,task,to_type) {
     var url = "../../forms/eye_mag/taskman.php";
     var formData = {
         'action'            : "make_task",
-        'from_id'           : '<?php echo $providerID; ?>',
+        'from_id'           : <?php echo js_escape($providerID); ?>,
         'to_id'             : to_id,
         'pid'               : $('#pid').val(),
         'doc_type'          : task,
@@ -1016,6 +1016,36 @@ function show_KB() {
     }
     update_PREFS();
 }
+
+function editScripts(url) {
+    var pid = $('#pid').val();
+        var AddScript = function () {
+            var iam = top.tab_mode ? top.frames.editScripts : window[0];
+            iam.location.href = "/openemr/controller.php?prescription&edit&id=&pid="+encodeURIComponent(pid)
+        };
+        var ListScripts = function () {
+            var iam = top.tab_mode ? top.frames.editScripts : window[0];
+            iam.location.href = "/openemr/controller.php?prescription&list&id="+encodeURIComponent(pid)
+        };
+        
+        let title = 'Prescriptions';
+        let w = 810;
+        w = 910;
+        
+        dlgopen(url, 'editScripts', w, 300, '', '', {
+            buttons: [
+                {text: 'Add', close: false, style: 'primary  btn-sm', click: AddScript},
+                {text: 'List', close: false, style: 'primary  btn-sm', click: ListScripts},
+                {text: 'Done', close: true, style: 'default btn-sm'}
+            ],
+            onClosed: 'refreshme',
+            allowResize: true,
+            allowDrag: true,
+            dialogId: 'editscripts',
+            type: 'iframe'
+        });
+    }
+
 /* END Functions related to form VIEW */
 
 /*
@@ -1980,6 +2010,38 @@ function build_DOCS(DOCS) {
         $("#ref_fax").html(DOCS['ref']['fax_info']);
     }
 }
+
+/**
+ *      Function to update the patient's current pharmacy
+ */
+
+function  update_Pharma() {
+    //$(#form_pharmacy_id) has changed value, update the patient_data field pharmacy_id
+    var pharm = $("#form_pharmacy_id").val();
+    var url = "../../forms/eye_mag/save.php?mode=update";
+    top.restoreSession();
+    $.ajax({
+        type         : 'POST',
+        url          :  url,
+        data         : {
+            action       : 'new_pharmacy',
+            pid          : $('#pid').val(),
+            form_id      : $('#form_id').val(),
+            encounter    : $('#encounter').val(),
+            uniqueID     : $('#uniqueID').val(),
+            pc_eid       : $("#pc_eid").val(),
+            visit_date   : $("#visit_date").val(),
+            new_pharmacy : pharm
+        }
+    }).done(function(result) {
+        if (result == "Code 400") {
+            code_400(); //the user does not have write privileges!
+            return;
+        }
+    });
+}
+    
+
 /**
  *  Function to convert ophthalmic prescriptions between plus cylinder and minus cylinder
  *
@@ -2098,7 +2160,7 @@ function color_IOP(IOP){
 function showpnotes(docid) {
     if (top.tab_mode) {
         let btnClose = 'Done';
-        let url = base+'/interface/patient_file/summary/pnotes.php?docid=' + docid;
+        let url = base+'/interface/patient_file/summary/pnotes.php?docid=' + encodeURIComponent(docid);
         dlgopen(url, 'pno1', 'modal-xl', 500, '', '', {
             buttons: [
                     {text: btnClose, close: true, style: 'default btn-xs'}
@@ -2126,7 +2188,6 @@ function getTimeStamp() {
 function show_by_setting() {
     var tabs_left = $("#setting_tabs_left").val();
     if (typeof tabs_left ==undefined) exit;
-    var tabs_left = $("#setting_tabs_left").val();
     var arrSet = ["HPI","PMH","EXT","ANTSEG","POSTSEG","NEURO","IMPPLAN"];
     sLen = arrSet.length;
     for (i = 0; i < sLen; i++) {
@@ -3345,10 +3406,12 @@ $("body").on("click","[name^='old_canvas']", function() {
                                                 //Copy the Eye_Defaults_for_GENERAL to Eye_defaults_$providerID
                                                 $sql="SELECT * from list_options where list_id = 'Eye_Defaults_for_GENERAL'";
                                                 $start= sqlStatement($sql);
+                                                $add_fields = array();
                                                 while ($val= sqlFetchArray($start)) {
-                                                    $add_fields .= "('Eye_defaults_".$providerID."','".$val['option_id']."','".$val['title']."','".$val['notes']."','1','".$val['seq']."'),";
+                                                    $parameters .= "(?, ?, ?, ?, ?, ?),";
+                                                    array_push($add_fields, "Eye_defaults_".$providerID, $val['option_id'], $val['title'], $val['notes'], '1', $val['seq']);
                                                 }
-                                                $add_fields = rtrim($add_fields, ",");
+                                                $parameters = rtrim($parameters, ",");
                                                 $query = "SELECT max(seq) as maxseq FROM list_options WHERE list_id= 'lists'";
                                                 $pres = sqlStatement($query);
                                                 $maxseq = sqlFetchArray($pres);
@@ -3360,8 +3423,8 @@ $("body").on("click","[name^='old_canvas']", function() {
                                                 $providerNAME = getProviderName($providerID);
                                                
                                                 sqlStatement($query, array("Eye_defaults_$providerID","Eye Exam Defaults $providerNAME ",$seq));
-                                                $query = "INSERT INTO `list_options` (`list_id`, `option_id`, `title`,`notes`,`activity`,`seq`) VALUES ".$add_fields;
-                                                sqlStatement($query);
+                                                $query = "INSERT INTO `list_options` (`list_id`, `option_id`, `title`,`notes`,`activity`,`seq`) VALUES ".$parameters;
+                                                sqlStatement($query, $add_fields);
                                             }
 
                                             $query = "select * from list_options where list_id =? and activity='1' order by seq";
