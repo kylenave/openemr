@@ -22,10 +22,10 @@
 require_once("../globals.php");
 require_once("$srcdir/patient.inc");
 require_once("$srcdir/forms.inc");
-require_once("$srcdir/invoice_summary.inc.php");
 require_once("../../custom/code_types.inc.php");
 require_once "$srcdir/user.inc";
 
+use OpenEMR\Billing\InvoiceSummary;
 use OpenEMR\Billing\SLEOB;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Logging\EventAuditLogger;
@@ -430,7 +430,7 @@ if (($_POST['form_save'] || $_POST['form_cancel'])) {
 }
 
 // Get invoice charge details.
-$codes = ar_get_invoice_summary($patient_id, $encounter_id, true);
+$codes = InvoiceSummary::ar_get_invoice_summary($patient_id, $encounter_id, true);
 $pdrow = sqlQuery("select billing_note from patient_data where pid = ? limit 1", array($patient_id));
 ?>
 
@@ -500,6 +500,12 @@ $pdrow = sqlQuery("select billing_note from patient_data where pid = ? limit 1",
                             :</label>
                         <input type='text' name='form_stmt_count' id='form_stmt_count' class="form-control"
                                value='<?php echo attr((0 + $ferow['stmt_count'])); ?>'/>
+                    </div>
+                    <div class="col-xs-2">
+                        <label class="control-label" for="form_last_bill"><?php echo xlt('Last Bill Date'); ?>
+                        :</label>
+                        <input type='text' name="form_last_bill" id='form_last_bill' class="form-control"
+                               value ='<?php echo attr($billdate); ?>' disabled/>
                     </div>
                     <div class="col-xs-3">
                         <label class="control-label" for="form_reference"><?php echo xlt('Check/EOB No.'); ?>:</label>
@@ -738,7 +744,7 @@ $pdrow = sqlQuery("select billing_note from patient_data where pid = ? limit 1",
                         <button type='button' class="btn btn-link btn-cancel btn-separate-left" name='form_cancel'
                             id="btn-cancel" onclick='doClose()'><?php echo xlt("Close"); ?></button>
                     </div>
-                    <?php if ($GLOBALS['new_tabs_layout'] && $from_posting) { ?>
+                    <?php if ($from_posting) { ?>
                         <button type='button' class="btn btn-default btn-view pull-right" name='form_goto' id="btn-goto"
                             onclick="goEncounterSummary(<?php echo attr_js($patient_id) ?>)"><?php echo xlt("Past Encounters"); ?></button>
                     <?php } ?>

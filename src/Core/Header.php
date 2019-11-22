@@ -52,6 +52,11 @@ class Header
      * Header::setupHeader('no_main-theme');
      * ```
      *
+     * Inside of a twig template (Parameters same as before):
+     * ```html
+     * {{ includeAsset() }}
+     * ```
+     *
      * Inside of a smarty template, use | (pipe) delimited string of key names
      * ```php
      * {headerTemplate}
@@ -105,7 +110,7 @@ class Header
         /* adding custom assets in addition */
         if (is_file("{$GLOBALS['fileroot']}/custom/assets/custom.yaml")) {
             $customMap = self::readConfigFile("{$GLOBALS['fileroot']}/custom/assets/custom.yaml");
-            self::parseConfigFile($customMap);
+            self::parseConfigFile($customMap, $assets);
         }
 
         $linksStr = implode("", self::$links);

@@ -5,7 +5,8 @@
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Brady Miller <brady.g.miller@gmail.com>
- * @copyright Copyright (c) 2018 Brady Miller <brady.g.miller@gmail.com>
+ * @author    Rod Roark <rod@sunsetsystems.com>
+ * @copyright Copyright (c) 2018-2019 Brady Miller <brady.g.miller@gmail.com>
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
 
@@ -40,7 +41,6 @@ for ($iter = 0; $row = sqlFetchArray($res); $iter++) {
 }
 
 $iter = $result[0];
-
 ?>
 
 <html>
@@ -84,7 +84,7 @@ function submitform() {
 
     top.restoreSession();
     var flag=0;
-    <?php if (!$GLOBALS['use_active_directory']) { ?>
+<?php if (empty($GLOBALS['gbl_ldap_enabled']) || empty($GLOBALS['gbl_ldap_exclusions'])) { ?>
     if(document.forms[0].clearPass.value!="")
     {
         //Checking for the strong password if the 'secure password' feature is enabled
@@ -116,16 +116,7 @@ function submitform() {
         }
 
     }//If pwd null ends here
-    <?php } ?>
-    //Request to reset the user password if the user was deactived once the password expired.
-    if((document.forms[0].pwd_expires.value != 0) && (document.forms[0].clearPass.value == "")) {
-        if((document.forms[0].user_type.value != "Emergency Login") && (document.forms[0].pre_active.value == 0) && (document.forms[0].active.checked == 1) && (document.forms[0].grace_time.value != "") && (document.forms[0].current_date.value) > (document.forms[0].grace_time.value))
-        {
-            flag=1;
-            document.getElementById('error_message').innerHTML=<?php echo xlj('Please reset the password.') ?>;
-        }
-    }
-
+<?php } ?>
   if (document.forms[0].access_group_id) {
     var sel = getSelected(document.forms[0].access_group_id.options);
     for (var item in sel) {
@@ -258,41 +249,29 @@ function authorized_clicked() {
 <FORM NAME="user_form" id="user_form" METHOD="POST" ACTION="usergroup_admin.php">
 <input type="hidden" name="csrf_token_form" value="<?php echo attr(CsrfUtils::collectCsrfToken()); ?>" />
 
-<input type=hidden name="pwd_expires" value="<?php echo attr($GLOBALS['password_expiration_days']); ?>" >
 <input type=hidden name="pre_active" value="<?php echo attr($iter["active"]); ?>" >
-<input type=hidden name="exp_date" value="<?php echo attr($iter["pwd_expiration_date"]); ?>" >
 <input type=hidden name="get_admin_id" value="<?php echo attr($GLOBALS['Emergency_Login_email']); ?>" >
 <input type=hidden name="admin_id" value="<?php echo attr($GLOBALS['Emergency_Login_email_id']); ?>" >
 <input type=hidden name="check_acl" value="">
-<?php
-//Calculating the grace time
-$current_date = date("Y-m-d");
-$password_exp=$iter["pwd_expiration_date"];
-if ($password_exp != "0000-00-00") {
-    $grace_time1 = date("Y-m-d", strtotime($password_exp . "+".$GLOBALS['password_grace_time'] ."days"));
-}
-?>
-<input type=hidden name="current_date" value="<?php echo attr(strtotime($current_date)); ?>" >
-<input type=hidden name="grace_time" value="<?php echo attr(strtotime($grace_time1)); ?>" >
 <input type=hidden name="user_type" value="<?php echo attr($bg_name); ?>" >
 
 <TABLE border=0 cellpadding=0 cellspacing=0>
 <TR>
     <TD style="width:180px;"><span class=text><?php echo xlt('Username'); ?>: </span></TD>
     <TD style="width:270px;"><input type=entry name=username style="width:150px;" class="form-control" value="<?php echo attr($iter["username"]); ?>" disabled></td>
-    <?php if (!$GLOBALS['use_active_directory']) { ?>
+<?php if (empty($GLOBALS['gbl_ldap_enabled']) || empty($GLOBALS['gbl_ldap_exclusions'])) { ?>
         <TD style="width:200px;"><span class=text>*<?php echo xlt('Your Password'); ?>*: </span></TD>
         <TD class='text' style="width:280px;"><input type='password' name=adminPass style="width:150px;"  class="form-control" value="" autocomplete='off'><font class="mandatory"></font></TD>
-    <?php } ?>
+<?php } ?>
 </TR>
-    <?php if (!$GLOBALS['use_active_directory']) { ?>
+<?php if (empty($GLOBALS['gbl_ldap_enabled']) || empty($GLOBALS['gbl_ldap_exclusions'])) { ?>
 <TR>
     <TD style="width:180px;"><span class=text></span></TD>
     <TD style="width:270px;"></td>
     <TD style="width:200px;"><span class=text><?php echo xlt('User\'s New Password'); ?>: </span></TD>
     <TD class='text' style="width:280px;">    <input type=text name=clearPass style="width:150px;"  class="form-control" value=""><font class="mandatory"></font></td>
 </TR>
-    <?php } ?>
+<?php } ?>
 
 <TR height="30" style="valign:middle;">
   <td class='text'>
@@ -504,7 +483,7 @@ foreach ($list_acl_groups as $value) {
     }
     ?>
 <!--
-Display red alert if entered password matched one of last three passwords/Display red alert if user password was expired and the user was inactivated previously
+Display red alert if entered password matched one of last three passwords/Display red alert if user password is expired
 -->
   <div class="redtext" id="error_message">&nbsp;</div>
   </td>

@@ -18,12 +18,10 @@
 
 
 require_once("../globals.php");
-require_once("$srcdir/invoice_summary.inc.php");
 require_once("../../library/acl.inc");
 require_once("$srcdir/auth.inc");
 require_once("../../custom/code_types.inc.php");
 require_once("$srcdir/patient.inc");
-require_once("$srcdir/billrep.inc");
 require_once("$srcdir/options.inc.php");
 require_once("$srcdir/payment.inc.php");
 
@@ -449,7 +447,7 @@ $payment_id=$payment_id*1 > 0 ? $payment_id + 0 : $request_payment_id + 0;
                 <form action="new_payment.php" id="new_payment" method='post' name='new_payment' onsubmit="
                 <?php
                 if ($payment_id*1==0) {
-                    echo 'top.restoreSession();return SavePayment();';
+                    echo 'top.restoreSession();';
                 } else {
                     echo 'return false;';
                 }?>" style="display:inline">
@@ -475,8 +473,10 @@ $payment_id=$payment_id*1 > 0 ? $payment_id + 0 : $request_payment_id + 0;
                             if ($CountIndexBelow>0) {
                                 ?>
                                 <?php //can change position of buttons by creating a class 'position-override' and adding rule text-align:center or right as the case may be in individual stylesheets ?>
+                            <br>
                             <div class="form-group clearfix">
                             <div class="col-sm-12 text-left position-override">
+                                <br>
                                 <div class="btn-group btn-group-pinch" role="group">
                                     <button class="btn btn-default btn-save" href="#" onclick="return PostPayments();"><?php echo xlt('Post Payments');?></button>
                                     <button class="btn btn-default btn-save" href="#" onclick="return FinishPayments();"><?php echo xlt('Finish Payments');?></button>
@@ -491,7 +491,8 @@ $payment_id=$payment_id*1 > 0 ? $payment_id + 0 : $request_payment_id + 0;
                         }
                         ?>
                     </fieldset>
-                    <input id="hidden_patient_code" name="hidden_patient_code" type="hidden" value="<?php echo attr($hidden_patient_code);?>"> <input id='mode' name='mode' type='hidden' value=''>
+                    <input id="hidden_patient_code" name="hidden_patient_code" type="hidden" value="<?php echo attr($hidden_patient_code);?>">
+                    <input id='mode' name='mode' type='hidden' value=''>
                     <input id='default_search_patient' name='default_search_patient' type='hidden' value='<?php echo attr($default_search_patient); ?>'>
                     <input id='ajax_mode' name='ajax_mode' type='hidden' value=''>
                     <input id="after_value" name="after_value" type="hidden" value="<?php echo attr($mode);?>">

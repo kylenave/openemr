@@ -40,6 +40,10 @@ $facilityService = new FacilityService();
 $GLOBALS['PATIENT_REPORT_ACTIVE'] = true;
 
 $PDF_OUTPUT = empty($_POST['pdf']) ? 0 : intval($_POST['pdf']);
+$PDF_FAX = empty($_POST['fax']) ? 0 : intval($_POST['fax']);
+if ($PDF_FAX) {
+    $PDF_OUTPUT = 1;
+}
 
 if ($PDF_OUTPUT) {
     $config_mpdf = array(
@@ -313,7 +317,7 @@ if ($printable) {
 // include ALL form's report.php files
 $inclookupres = sqlStatement("select distinct formdir from forms where pid = ? AND deleted=0", array($pid));
 while ($result = sqlFetchArray($inclookupres)) {
-  // include_once("{$GLOBALS['incdir']}/forms/" . $result{"formdir"} . "/report.php");
+  // include_once("{$GLOBALS['incdir']}/forms/" . $result["formdir"] . "/report.php");
     $formdir = $result['formdir'];
     if (substr($formdir, 0, 3) == 'LBF') {
         include_once($GLOBALS['incdir'] . "/forms/LBF/report.php");
@@ -520,7 +524,7 @@ foreach ($ar as $key => $val) {
             // echo $sql;
             $result = sqlStatement($sql, array($pid));
             while ($row=sqlFetchArray($result)) {
-                echo text($row{'batchcom_data'}) . ", By: " . text($row{'user_name'}) . "<br>Text:<br> " . text($row{'msg_txt'}) . "<br>\n";
+                echo text($row['batchcom_data']) . ", By: " . text($row['user_name']) . "<br>Text:<br> " . text($row['msg_txt']) . "<br>\n";
             }
 
             echo "</div>\n";
@@ -817,7 +821,10 @@ if ($printable && ! $PDF_OUTPUT) {// Patched out of pdf 04/20/2017 sjpadgett
 if ($PDF_OUTPUT) {
     $content = getContent();
     $ptd = getPatientData($pid, "fname,lname");
-    $fn = strtolower($ptd['fname'] . '_' . $ptd['lname'] . '_' . $pid . '_' . xl('report') . '.pdf');
+    // escape names for pesky periods hyphen etc.
+    $esc = $ptd['fname'] . '_' . $ptd['lname'];
+    $esc = str_replace(array('.', ',', ' '), '', $esc);
+    $fn = basename_international(strtolower($esc . '_' . $pid . '_' . xl('report') . '.pdf'));
     $pdf->SetTitle(ucfirst($ptd['fname']) . ' ' . $ptd['lname'] . ' ' . xl('Id') . ':' . $pid . ' ' . xl('Report'));
     $isit_utf8 = preg_match('//u', $content); // quick check for invalid encoding
     if (! $isit_utf8) {
@@ -837,7 +844,15 @@ if ($PDF_OUTPUT) {
 
     if ($PDF_OUTPUT == 1) {
         try {
-            $pdf->Output($fn, $GLOBALS['pdf_output']); // D = Download, I = Inline
+            if ($PDF_FAX === 1) {
+                $fax_pdf = $pdf->Output($fn, 'S');
+                $tmp_file = $GLOBALS['temporary_files_dir'] . '/' . $fn; // is deleted in sendFax...
+                file_put_contents($tmp_file, $fax_pdf);
+                echo $tmp_file;
+                exit();
+            } else {
+                $pdf->Output($fn, $GLOBALS['pdf_output']); // D = Download, I = Inline
+            }
         } catch (MpdfException $exception) {
             die(text($exception));
         }

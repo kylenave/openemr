@@ -590,7 +590,7 @@ closedir($dh);
  <tr>
 
   <td class='control-label'>
-    <?php echo xlt('To'); ?>:
+    <?php echo xlt('To{{Destination}}'); ?>:
   </td>
 
   <td>
@@ -689,7 +689,7 @@ closedir($dh);
 
 // jQuery stuff to make the page a little easier to use
 
-$(document).ready(function(){
+$(function(){
     $("#form_generate").click(function() { $("#formaction").val("generate"); $("#theform").submit(); });
     $("#form_template").change(function() { $("#formaction").val("loadtemplate"); $("#theform").submit(); });
 

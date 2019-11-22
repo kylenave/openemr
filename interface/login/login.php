@@ -2,18 +2,8 @@
 /**
  * Login screen.
  *
- * LICENSE: This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://opensource.org/licenses/gpl-license.php>;.
- *
  * @package OpenEMR
+ * @link      http://www.open-emr.org
  * @author  Rod Roark <rod@sunsetsystems.com>
  * @author  Brady Miller <brady.g.miller@gmail.com>
  * @author  Kevin Yeh <kevin.y@integralemr.com>
@@ -22,7 +12,8 @@
  * @author  Julia Longtin <julialongtin@diasp.org>
  * @author  cfapress
  * @author  markleeds
- * @link    http://www.open-emr.org
+ * @copyright Copyright (c) 2019 Brady Miller <brady.g.miller@gmail.com>
+ * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
 
 
@@ -38,23 +29,21 @@ require_once("../globals.php");
 //
 // Build a list of valid entries
 $emr_app = array();
-if ($GLOBALS['new_tabs_layout']) {
-    $rs = sqlStatement(
-        "SELECT option_id, title,is_default FROM list_options
-			WHERE list_id=? and activity=1 ORDER BY seq, option_id",
-        array ('apps')
-    );
-    if (sqlNumRows($rs)) {
-        while ($app = sqlFetchArray($rs)) {
-            $app_req = explode('?', trim($app['title']));
-            if (! file_exists('../'.$app_req[0])) {
-                continue;
-            }
+$rs = sqlStatement(
+    "SELECT option_id, title,is_default FROM list_options
+        WHERE list_id=? and activity=1 ORDER BY seq, option_id",
+    array ('apps')
+);
+if (sqlNumRows($rs)) {
+    while ($app = sqlFetchArray($rs)) {
+        $app_req = explode('?', trim($app['title']));
+        if (! file_exists('../'.$app_req[0])) {
+            continue;
+        }
 
-                $emr_app [trim($app ['option_id'])] = trim($app ['title']);
-            if ($app ['is_default']) {
-                $emr_app_def = $app ['option_id'];
-            }
+            $emr_app [trim($app ['option_id'])] = trim($app ['title']);
+        if ($app ['is_default']) {
+            $emr_app_def = $app ['option_id'];
         }
     }
 }
@@ -133,7 +122,7 @@ if (count($emr_app)) {
     <script type="text/javascript" src="<?php echo $webroot ?>/interface/product_registration/product_registration_controller.js?v=<?php echo $v_js_includes; ?>"></script>
 
     <script type="text/javascript">
-        jQuery(document).ready(function() {
+        $(function() {
             init();
 
             var productRegistrationController = new ProductRegistrationController();
@@ -150,7 +139,18 @@ if (count($emr_app)) {
             $("#authUser").focus();
         }
 
-        function transmit_form() {
+        function transmit_form(element) {
+            // disable submit button to insert a notification of working
+            element.disabled = true;
+            // nothing fancy. mainly for mobile.
+            element.innerHTML = '<i class="fa fa-refresh fa-spin"></i> <?php echo xlt("Authenticating"); ?>';
+            <?php if (!empty($GLOBALS['restore_sessions'])) { ?>
+                // Delete the session cookie by setting its expiration date in the past.
+                // This forces the server to create a new session ID.
+                var olddate = new Date();
+                olddate.setFullYear(olddate.getFullYear() - 1);
+                document.cookie = <?php echo json_encode(urlencode(session_name())); ?> + '=' + <?php echo json_encode(urlencode(session_id())); ?> + '; path=<?php echo($web_root ? $web_root : '/');?>; expires=' + olddate.toGMTString();
+            <?php } ?>
             document.forms[0].submit();
         }
     </script>
@@ -170,17 +170,6 @@ if (count($emr_app)) {
                         <input type='hidden' name='new_login_session_management' value='1' />
 
                         <?php
-                        // collect groups
-                        $res = sqlStatement("select distinct name from `groups`");
-                        for ($iter = 0; $row = sqlFetchArray($res); $iter++) {
-                              $result[$iter] = $row;
-                        }
-
-                        if (count($result) == 1) {
-                              $resvalue = $result[0]{"name"};
-                              echo "<input type='hidden' name='authProvider' value='" . attr($resvalue) . "' />\n";
-                        }
-
                         // collect default language id
                         $res2 = sqlStatement("select * from lang_languages where lang_description = ?", array($GLOBALS['language_default']));
                         for ($iter = 0; $row = sqlFetchArray($res2); $iter++) {
@@ -188,8 +177,8 @@ if (count($emr_app)) {
                         }
 
                         if (count($result2) == 1) {
-                            $defaultLangID = $result2[0]{"lang_id"};
-                            $defaultLangName = $result2[0]{"lang_description"};
+                            $defaultLangID = $result2[0]["lang_id"];
+                            $defaultLangName = $result2[0]["lang_description"];
                         } else {
                             //default to english if any problems
                             $defaultLangID = 1;
@@ -296,20 +285,6 @@ if (count($emr_app)) {
                         endif;
                         ?>
                     </div>
-                    <?php if (count($result) > 1) : // Begin Display check for groups ?>
-                        <div class="form-group">
-                            <label for="group" class="control-label text-right"><?php echo xlt('Group:'); ?></label>
-                            <div>
-                                <select name="authProvider" class="form-control">
-                                    <?php
-                                    foreach ($result as $iter) {
-                                        echo "<option value='".attr($iter{"name"})."'>".text($iter{"name"})."</option>\n";
-                                    }
-                                    ?>
-                                </select>
-                            </div>
-                        </div>
-                    <?php endif; // End Display check for groups ?>
                     <div class="form-group">
                         <label for="authUser" class="control-label text-right"><?php echo xlt('Username:'); ?></label>
                         <input type="text" class="form-control" id="authUser" name="authUser" placeholder="<?php echo xla('Username:'); ?>">
@@ -365,9 +340,11 @@ if (count($emr_app)) {
                         </div>
                     <?php endif; // End facilities menu block ?>
                     <div class="form-group pull-right">
-                        <button type="submit" class="btn btn-default btn-lg" onClick="transmit_form()"><i class="fa fa-sign-in"></i>&nbsp;&nbsp;<?php echo xlt('Login');?></button>
+                        <button type="submit" class="btn btn-default btn-lg" onClick="transmit_form(this)"><i class="fa fa-sign-in"></i>&nbsp;&nbsp;<?php echo xlt('Login');?></button>
                     </div>
                 </div>
+            </div>
+            <div class="row">
                 <div class="col-sm-12 text-center">
                     <p class="small">
                         <a href="../../acknowledge_license_cert.html" target="main"><?php echo xlt('Acknowledgments, Licensing and Certification'); ?></a>

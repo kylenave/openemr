@@ -65,7 +65,7 @@ function dlgOpenWindow(url, winname, width, height) {
     }
     top.modaldialog = cascwin(url, winname, width, height,
         "resizable=1,scrollbars=1,location=0,toolbar=0");
-    grabfocus(top);
+
     return false;
 }
 
@@ -176,9 +176,8 @@ function inDom(dependency, type, remove) {
 // These functions may be called from scripts that may be out of scope with top so...
 // if opener is tab then we need to be in tabs UI scope and while we're at it, let's bring webroot along...
 //
-if (typeof top.tab_mode === "undefined" && opener) {
-    if (typeof opener.top.tab_mode !== "undefined") {
-        top.tab_mode = opener.top.tab_mode;
+if (typeof top.webroot_url === "undefined" && opener) {
+    if (typeof opener.top.webroot_url !== "undefined") {
         top.webroot_url = opener.top.webroot_url;
     }
 }
@@ -232,26 +231,26 @@ if (typeof alertMsg !== "function") {
             console.log(error.message)
         });
     }
+    const persistUserOption = function (option, value) {
+        return $.ajax({
+            url: top.webroot_url + "/library/ajax/user_settings.php",
+            type: 'post',
+            contentType: 'application/x-www-form-urlencoded',
+            data: {
+                csrf_token_form: top.csrf_token_js,
+                target: option,
+                setting: value
+            },
+            beforeSend: function () {
+                top.restoreSession;
+            },
+            error: function (jqxhr, status, errorThrown) {
+                console.log(errorThrown);
+            }
+        });
+    };
 }
 
-const persistUserOption = function (option, value) {
-    return $.ajax({
-        url: top.webroot_url + "/library/ajax/user_settings.php",
-        type: 'post',
-        contentType: 'application/x-www-form-urlencoded',
-        data: {
-            csrf_token_form: top.csrf_token_js,
-            target: option,
-            setting: value
-        },
-        beforeSend: function () {
-            top.restoreSession;
-        },
-        error: function (jqxhr, status, errorThrown) {
-            console.log(errorThrown);
-        }
-    });
-};
 
 
 // Test if supporting dialog callbacks and close dependencies are in scope.
@@ -264,16 +263,12 @@ const persistUserOption = function (option, value) {
 //
 if (typeof dlgclose !== "function") {
     if (!opener) {
-        if (!top.tab_mode && typeof top.get_opener === 'function') {
-            opener = top.get_opener(window.name) ? top.get_opener(window.name) : window;
-        } else {
-            opener = window;
-        }
+        opener = window;
     }
 
     function dlgclose(call, args) {
         var frameName = window.name;
-        var wframe = opener;
+        var wframe = top;
         if (frameName === '') {
             // try to find dialog. dialogModal is embedded dialog class
             // It has to be here somewhere.
@@ -286,29 +281,7 @@ if (typeof dlgclose !== "function") {
                 }
             }
         }
-        if (!top.tab_mode) {
-            for (; wframe.name !== 'RTop' && wframe.name !== 'RBot'; wframe = wframe.parent) {
-                if (wframe.parent === wframe) {
-                    wframe = window;
-                }
-            }
-            for (let i = 0; wframe.document.body.localName !== 'body' && i < 4; wframe = wframe[i++]) {
-                if (i === 3) {
-                    console.log("Opener: unable to find modal's frame");
-                    return false;
-                }
-            }
-            dialogModal = wframe.$('div#' + frameName);
-            if (dialogModal.length === 0) {
-                // Never give up...
-                frameName = $(".dialogModal").attr('id');
-                dialogModal = wframe.$('div#' + frameName);
-                console.log("Frame: used local find dialog");
-            }
-        } else {
-            var dialogModal = top.$('div#' + frameName);
-            wframe = top;
-        }
+        var dialogModal = top.$('div#' + frameName);
 
         var removeFrame = dialogModal.find("iframe[name='" + frameName + "']");
         if (removeFrame.length > 0) {
@@ -331,7 +304,7 @@ if (typeof dlgclose !== "function") {
 *
 * @param {url} string Content location.
 * @param {String} winname If set becomes modal id and/or iframes name. Or, one is created/assigned(iframes).
-* @param {Number| String} width|modalSize(modal-xlg) For sizing: an number will be converted to a percentage of view port width.
+* @param {Number| String} width|modalSize(modal-xl) For sizing: an number will be converted to a percentage of view port width.
 * @param {Number} height Initial minimum height. For iframe auto resize starts at this height.
 * @param {boolean} forceNewWindow Force using a native window.
 * @param {String} title If exist then header with title is created otherwise no header and content only.
@@ -405,29 +378,7 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
 
     var mHeight, mWidth, mSize, msSize, dlgContainer, fullURL, where; // a growing list...
 
-    if (top.tab_mode) {
-        where = opts.type === 'iframe' ? top : window;
-    } else { // if frames u.i, this will search for the first body node so we have a landing place for stackable's
-        let wframe = window;
-        if (wframe.name !== 'left_nav') {
-            for (let i = 0; wframe.name !== 'RTop' && wframe.name !== 'RBot' && i < 6; wframe = wframe.parent) {
-                if (i === 5) {
-                    wframe = window;
-                }
-                i++;
-            }
-        } else {
-            wframe = top.window['RTop'];
-        }
-        for (let i = 0; wframe.document.body.localName !== 'body' && i < 6; wframe = wframe[i++]) {
-            if (i === 5) {
-                alert('Unable to find window to build');
-                return false;
-            }
-        }
-
-        where = wframe; // A moving target for Frames UI.
-    }
+    where = opts.type === 'iframe' ? top : window;
 
     // get url straight...
     var fullURL = "";
@@ -445,6 +396,10 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
     // what's a window without a name. important for stacking and opener.
     winname = (winname === "_blank" || !winname) ? dialogID() : winname;
 
+    // for small screens or request width is larger than viewport.
+    if (where.innerWidth <= 768) {
+        width = "modal-xl";
+    }
     // Convert dialog size to percentages and/or css class.
     var sizeChoices = ['modal-sm', 'modal-md', 'modal-mlg', 'modal-lg', 'modal-xl'];
     if (Math.abs(width) > 0) {
@@ -467,7 +422,7 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
     } else if (mSize === 'modal-lg') {
         msSize = '<style>.modal-custom-' + winname + ' {width:75%;}</style>';
     } else if (mSize === 'modal-xl') {
-        msSize = '<style>.modal-custom-' + winname + ' {width:96%;}</style>';
+        msSize = '<style>.modal-custom-' + winname + ' {width:92%;}</style>';
     }
     mSize = 'modal-custom-' + winname;
 
@@ -746,13 +701,8 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
     function sizing(e, height) {
         let viewPortHt = 0;
         let $idoc = jQuery(e.currentTarget);
-        if (top.tab_mode) {
-            viewPortHt = Math.max(top.window.document.documentElement.clientHeight, top.window.innerHeight || 0);
-            viewPortWt = Math.max(top.window.document.documentElement.clientWidth, top.window.innerWidth || 0);
-        } else {
-            viewPortHt = window.innerHeight || 0;
-            viewPortWt = window.innerWidth || 0;
-        }
+        viewPortHt = Math.max(top.window.document.documentElement.clientHeight, top.window.innerHeight || 0);
+        viewPortWt = Math.max(top.window.document.documentElement.clientWidth, top.window.innerWidth || 0);
         let frameContentHt = opts.sizeHeight === 'full' ? viewPortHt : height;
         frameContentHt = frameContentHt > viewPortHt ? viewPortHt : frameContentHt;
         let hasHeader = $idoc.parents('div.modal-content').find('div.modal-header').height() || 0;
@@ -774,11 +724,7 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
         let idoc = e.currentTarget.contentDocument ? e.currentTarget.contentDocument : e.currentTarget.contentWindow.document;
         jQuery(e.currentTarget).parents('div.modal-content').height('');
         jQuery(e.currentTarget).parent('div.modal-body').css({'height': 0});
-        if (top.tab_mode) {
-            viewPortHt = top.window.innerHeight || 0;
-        } else {
-            viewPortHt = where.window.innerHeight || 0;
-        }
+        viewPortHt = top.window.innerHeight || 0;
         //minSize = 100;
         let frameContentHt = Math.max(jQuery(idoc).height(), idoc.body.offsetHeight || 0) + 30;
         frameContentHt = frameContentHt < minSize ? minSize : frameContentHt;

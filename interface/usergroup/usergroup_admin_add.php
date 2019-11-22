@@ -5,6 +5,7 @@
  * @package   OpenEMR
  * @link      http://www.open-emr.org
  * @author    Brady Miller <brady.g.miller@gmail.com>
+ * @author    Rod Roark <rod@sunsetsystems.com>
  * @copyright Copyright (c) 2017-2018 Brady Miller <brady.g.miller@gmail.com>
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
@@ -218,11 +219,11 @@ function authorized_clicked() {
 <table border=0 cellpadding=0 cellspacing=0 style="width:600px;">
 <tr>
 <td style="width:150px;"><span class="text"><?php echo xlt('Username'); ?>: </span></td><td  style="width:220px;"><input type=entry name="rumple" style="width:120px;" class="form-control"><span class="mandatory"></span></td>
-    <?php if (!$GLOBALS['use_active_directory']) { ?>
+<?php if (empty($GLOBALS['gbl_ldap_enabled']) || empty($GLOBALS['gbl_ldap_exclusions'])) { ?>
 <td style="width:150px;"><span class="text"><?php echo xlt('Password'); ?>: </span></td><td style="width:250px;"><input type="password" style="width:120px;" name="stiltskin" class="form-control"><span class="mandatory"></span></td>
-    <?php } else { ?>
+<?php } else { ?>
         <td> <input type="hidden" value="124" name="stiltskin" /></td>
-    <?php } ?>
+<?php } ?>
 </tr>
 <tr>
     <td style="width:150px;"></td><td  style="width:220px;"></span></td>
@@ -242,7 +243,7 @@ for ($iter = 0; $row = sqlFetchArray($res); $iter++) {
 }
 
 foreach ($result2 as $iter) {
-    print "<option value='" . attr($iter{"name"}). "'>" . text($iter{"name"}) . "</option>\n";
+    print "<option value='" . attr($iter["name"]). "'>" . text($iter["name"]) . "</option>\n";
 }
 ?>
 </select></td>
@@ -268,7 +269,7 @@ if ($fres) {
 
     foreach ($result as $iter) {
         ?>
-    <option value="<?php echo attr($iter{'id'}); ?>"><?php echo text($iter{'name'}); ?></option>
+    <option value="<?php echo attr($iter['id']); ?>"><?php echo text($iter['name']); ?></option>
         <?php
     }
 }
@@ -423,7 +424,7 @@ for ($iter = 0; $row = sqlFetchArray($res); $iter++) {
 }
 
 foreach ($result as $iter) {
-    print "<option value='" . attr($iter{"username"}) . "'>" . text($iter{"username"}) . "</option>\n";
+    print "<option value='" . attr($iter["username"]) . "'>" . text($iter["username"]) . "</option>\n";
 }
 ?>
 </select>
@@ -454,7 +455,7 @@ for ($iter = 0; $row = sqlFetchArray($res); $iter++) {
 }
 
 foreach ($result3 as $iter) {
-    print "<option value='" . attr($iter{"username"}) . "'>" . text($iter{"username"}) . "</option>\n";
+    print "<option value='" . attr($iter["username"]) . "'>" . text($iter["username"]) . "</option>\n";
 }
 ?>
 </select>
@@ -469,7 +470,7 @@ for ($iter = 0; $row = sqlFetchArray($res); $iter++) {
 }
 
 foreach ($result2 as $iter) {
-    print "<option value='" . attr($iter{"name"}) . "'>" . text($iter{"name"}) . "</option>\n";
+    print "<option value='" . attr($iter["name"]) . "'>" . text($iter["name"]) . "</option>\n";
 }
 ?>
 </select>
@@ -489,9 +490,9 @@ if (empty($GLOBALS['disable_non_default_groups'])) {
     }
 
     foreach ($result5 as $iter) {
-        $grouplist{$iter{"name"}} .= $iter{"user"} .
+        $grouplist[$iter["name"]] .= $iter["user"] .
         "(<a class='link_submit' href='usergroup_admin.php?mode=delete_group&id=" .
-        attr_url($iter{"id"}) . "&csrf_token_form=" . attr_url(CsrfUtils::collectCsrfToken()) . "' onclick='top.restoreSession()'>" . xlt("Remove") . "</a>), ";
+        attr_url($iter["id"]) . "&csrf_token_form=" . attr_url(CsrfUtils::collectCsrfToken()) . "' onclick='top.restoreSession()'>" . xlt("Remove") . "</a>), ";
     }
 
     foreach ($grouplist as $groupname => $list) {

@@ -249,6 +249,7 @@ if (!$_REQUEST['flb_table']) {
 <body class="body_top">
     <?php
     if (($GLOBALS['medex_enable'] == '1') && (empty($_REQUEST['nomenu']))) {
+        $logged_in = $MedEx->login();
         $MedEx->display->navigation($logged_in);
     }
     ?>
@@ -484,9 +485,7 @@ if (!$_REQUEST['flb_table']) {
 
                   <a class='btn btn-primary' onclick="print_FLB();"> <?php echo xlt('Print'); ?> </a>
 
-                <?php if ($GLOBALS['new_tabs_layout']) { ?>
                   <a class='btn btn-primary' onclick="kiosk_FLB();"> <?php echo xlt('Kiosk'); ?> </a>
-                <?php } ?>
                 </span>
             </div>
 
@@ -953,11 +952,7 @@ function myLocalJS()
         var auto_refresh = null;
         //this can be refined to redact HIPAA material using @media print options.
         top.restoreSession();
-        if (top.tab_mode) {
-            window.parent.$("[name='flb']").attr('allowFullscreen', 'true');
-        } else {
-             $(this).attr('allowFullscreen', 'true');
-        }
+        window.parent.$("[name='flb']").attr('allowFullscreen', 'true');
         <?php
         if ($_REQUEST['kiosk'] == '1') { ?>
             $("[name='kiosk_hide']").hide();

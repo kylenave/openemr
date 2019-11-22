@@ -12,12 +12,16 @@
  * @copyright Copyright (c) 2018 Brady Miller <brady.g.miller@gmail.com>
  * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
+
+use OpenEMR\Billing\BillingReport;
+
 ?>
 <style>
 .criteria_class1{width:125px;}
 .criteria_class2{padding-left:5px;}
 </style>
 <?php
+
 $ThisPageSearchCriteriaKey=array();
 $ThisPageSearchCriteriaDataType=array();
 $ThisPageSearchCriteriaDisplay=array();
@@ -133,7 +137,7 @@ for ($ThisPageSearchCriteriaIndex=0; $ThisPageSearchCriteriaIndex<sizeof($ThisPa
             ?>
             <?php
             if ($ThisPageSearchCriteriaDataType[$ThisPageSearchCriteriaIndex]=='query_drop_down') {
-                $array_query_drop_down=BuildArrayForReport($ThisPageSearchCriteriaQueryDropDownMaster[$ThisPageSearchCriteriaQueryDropDown[$ThisPageSearchCriteriaIndex]]);
+                $array_query_drop_down = BillingReport::BuildArrayForReport($ThisPageSearchCriteriaQueryDropDownMaster[$ThisPageSearchCriteriaQueryDropDown[$ThisPageSearchCriteriaIndex]]);
                 $QueryDropDownNamePart=str_replace('.', '_', $ThisPageSearchCriteriaKey[$ThisPageSearchCriteriaIndex]);
                 ?>
                 <div class="form-group col-xs-6" id="table_<?php echo attr($ThisPageSearchCriteriaKey[$ThisPageSearchCriteriaIndex]) ?>" style="display:none">
@@ -172,7 +176,7 @@ for ($ThisPageSearchCriteriaIndex=0; $ThisPageSearchCriteriaIndex<sizeof($ThisPa
                     <div class= "col-xs-12">
                         <label class="control-label" for=""><?php echo text($ThisPageSearchCriteriaDisplay[$ThisPageSearchCriteriaIndex]); ?>:</label>
                         <div <?php //Don't Use class =  'form-control'?>>
-                            <?php $FunctionName=$ThisPageSearchCriteriaIncludeMaster[$ThisPageSearchCriteriaInclude[$ThisPageSearchCriteriaIndex]];
+                            <?php $FunctionName = $ThisPageSearchCriteriaIncludeMaster[$ThisPageSearchCriteriaInclude[$ThisPageSearchCriteriaIndex]];
                             $FunctionName();?>
                         </div>
                     </div>
@@ -262,20 +266,26 @@ for ($ThisPageSearchCriteriaIndex=0; $ThisPageSearchCriteriaIndex<sizeof($ThisPa
             <label for="final_this_page_criteria" class="col-xs-12"><?php echo xlt('Criteria'); ?>  <?php echo xlt('Set To'); ?>: <i class="fa fa-times-circle fa-2x text-danger pull-right" style="margin-top:-7px" aria-hidden="true" onclick="removeOptionSelected()" title="<?php echo xla('Click here to delete the selection'); ?>"></i></label>
             <select name='final_this_page_criteria[]' id='final_this_page_criteria' size='8' class='text col-xs-12'  title='Criteria' multiple="multiple" >
                 <?php
-                for ($final_this_page_criteria_index=0; $final_this_page_criteria_index<sizeof($_REQUEST['final_this_page_criteria']); $final_this_page_criteria_index++) {
-                    ?>
-                    <option value="<?php echo attr($_REQUEST['final_this_page_criteria'][$final_this_page_criteria_index]) ?>" >
-                    <?php echo xlt($_REQUEST['final_this_page_criteria_text'][$final_this_page_criteria_index]) ?></option>
-                    <?php
+                if ($_REQUEST['final_this_page_criteria']) {
+                    for ($final_this_page_criteria_index=0; $final_this_page_criteria_index<sizeof($_REQUEST['final_this_page_criteria']); $final_this_page_criteria_index++) {
+                        ?>
+                        <option value="<?php echo attr($_REQUEST['final_this_page_criteria'][$final_this_page_criteria_index]) ?>" >
+                        <?php echo xlt($_REQUEST['final_this_page_criteria_text'][$final_this_page_criteria_index]) ?></option>
+                        <?php
+                    }
                 }
                 ?>
                 </select>
                 <select name='final_this_page_criteria_text[]' id='final_this_page_criteria_text' style="display:none" multiple="multiple" >
                 <?php
-                for ($final_this_page_criteria_index=0; $final_this_page_criteria_index<sizeof($_REQUEST['final_this_page_criteria']); $final_this_page_criteria_index++) {
-                    ?>
-                    <option value="<?php echo attr($_REQUEST['final_this_page_criteria_text'][$final_this_page_criteria_index]) ?>" >1</option>
-                    <?php
+                if ($_REQUEST['final_this_page_criteria']) {
+                    for ($final_this_page_criteria_index = 0; $final_this_page_criteria_index < sizeof($_REQUEST['final_this_page_criteria']); $final_this_page_criteria_index++) {
+                        ?>
+                        <option value="<?php echo attr($_REQUEST['final_this_page_criteria_text'][$final_this_page_criteria_index]) ?>">
+                            1
+                        </option>
+                        <?php
+                    }
                 }
                 ?>
             </select>

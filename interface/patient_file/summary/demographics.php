@@ -22,13 +22,12 @@ require_once("$srcdir/patient.inc");
 require_once("$srcdir/acl.inc");
 require_once("$srcdir/options.inc.php");
 require_once("../history/history.inc.php");
-require_once("$srcdir/edi.inc");
-require_once("$srcdir/invoice_summary.inc.php");
 require_once("$srcdir/clinical_rules.php");
 require_once("$srcdir/options.js.php");
 require_once("$srcdir/group.inc");
 require_once(dirname(__FILE__)."/../../../library/appointments.inc.php");
 
+use OpenEMR\Billing\EDI_270;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
 use OpenEMR\Menu\PatientMenuRole;
@@ -172,7 +171,6 @@ if ($result3['provider']) {   // Use provider in case there is an ins record w/ 
     <?php Header::setupHeader(['common']); ?>
 
 <script type="text/javascript" language="JavaScript">
-
  function oldEvt(apptdate, eventid) {
    let title = <?php echo xlj('Appointments'); ?>;
    dlgopen('../../main/calendar/add_edit_event.php?date=' + encodeURIComponent(apptdate) + '&eid=' + encodeURIComponent(eventid), '_blank', 725, 500, '', title);
@@ -200,11 +198,7 @@ if ($result3['provider']) {   // Use provider in case there is an ins record w/ 
 
  // Called by the deleteme.php window on a successful delete.
  function imdeleted() {
-    <?php if ($GLOBALS['new_tabs_layout']) { ?>
    top.clearPatient();
-    <?php } else { ?>
-   parent.left_nav.clearPatient();
-    <?php } ?>
  }
 
  function newEvt() {
@@ -255,7 +249,7 @@ function editScripts(url) {
         __this.find("#backButton").css("display", "");
         __this.find("#addButton").css("display", "none");
 
-        var iam = top.tab_mode ? top.frames.editScripts : window[1];
+        var iam = top.frames.editScripts;
         iam.location.href = '<?php echo $GLOBALS['webroot']?>/controller.php?prescription&edit&id=0&pid=' + <?php echo js_url($pid); ?>;
     };
     var ListScripts = function () {
@@ -264,7 +258,7 @@ function editScripts(url) {
         __this.find("#clearButton").css("display", "none");
         __this.find("#backButton").css("display", "none");
         __this.find("#addButton").css("display", "");
-        var iam = top.tab_mode ? top.frames.editScripts : window[1];
+        var iam = top.frames.editScripts
         iam.location.href = '<?php echo $GLOBALS['webroot']?>/controller.php?prescription&list&id=' + <?php echo js_url($pid); ?>;
     };
 
@@ -301,7 +295,7 @@ function doPublish() {
     });
 }
 
-$(document).ready(function(){
+$(function(){
   var msg_updation='';
     <?php
     if ($GLOBALS['erx_enable']) {
@@ -469,11 +463,11 @@ while ($gfrow = sqlFetchArray($gfres)) {
     $(".rx_modal").on('click', function(e) {
         e.preventDefault();e.stopPropagation();
         var AddAmendment = function () {
-            var iam = top.tab_mode ? top.frames.editAmendments : window[0];
+            var iam = top.frames.editAmendments;
             iam.location.href = "<?php echo $GLOBALS['webroot']?>/interface/patient_file/summary/add_edit_amendments.php"
         };
         var ListAmendments = function () {
-            var iam = top.tab_mode ? top.frames.editAmendments : window[0];
+            var iam = top.frames.editAmendments;
             iam.location.href = "<?php echo $GLOBALS['webroot']?>/interface/patient_file/summary/list_amendments.php"
         };
         var title = <?php echo xlj('Amendments'); ?>;
@@ -567,7 +561,7 @@ while ($gfrow = sqlFetchArray($gfres)) {
     //  1. The patient is not deceased
     //  2. The birthday is today (or in the past depending on global selection)
     //  3. The notification has not been turned off (or shown depending on global selection) for this year
-    $birthdayAlert = new BirthdayReminder($pid, $_SESSION['authId']);
+    $birthdayAlert = new BirthdayReminder($pid, $_SESSION['authUserID']);
     if ($birthdayAlert->isDisplayBirthdayAlert()) {
         ?>
     // show the active reminder modal
@@ -591,11 +585,6 @@ while ($gfrow = sqlFetchArray($gfres)) {
 // JavaScript stuff to do when a new patient is set.
 //
 function setMyPatient() {
- // Avoid race conditions with loading of the left_nav or Title frame.
- if (!parent.allFramesLoaded()) {
-  setTimeout("setMyPatient()", 500);
-  return;
- }
 <?php
 if (isset($_GET['set_pid'])) {
     $date_of_death = is_patient_deceased($pid)['date_deceased']; ?>
@@ -633,16 +622,9 @@ if (isset($_GET['set_pid'])) {
     $_SESSION['encounter'] = $encounter;
     $query_result = sqlQuery("SELECT `date` FROM `form_encounter` WHERE `encounter` = ?", array($encounter)); ?>
  encurl = 'encounter/encounter_top.php?set_encounter=' + <?php echo js_url($encounter);?> + '&pid=' + <?php echo js_url($pid);?>;
-    <?php if ($GLOBALS['new_tabs_layout']) { ?>
   parent.left_nav.setEncounter(<?php echo js_escape(oeFormatShortDate(date("Y-m-d", strtotime($query_result['date'])))); ?>, <?php echo js_escape($encounter); ?>, 'enc');
     top.restoreSession();
   parent.left_nav.loadFrame('enc2', 'enc', 'patient_file/' + encurl);
-    <?php } else { ?>
-  var othername = (window.name == 'RTop') ? 'RBot' : 'RTop';
-  parent.left_nav.setEncounter(<?php echo js_escape(attr(oeFormatShortDate(date("Y-m-d", strtotime($query_result['date']))))); ?>, <?php echo js_escape($encounter); ?>, othername);
-    top.restoreSession();
-  parent.frames[othername].location.href = '../' + encurl;
-    <?php } ?>
 <?php } // end setting new encounter id (only if new pid is also set) ?>
 }
 
@@ -704,7 +686,7 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
     <div id="container_div" class="<?php echo $oemr_ui->oeContainer();?>">
         <a href='../reminder/active_reminder_popup.php' id='reminder_popup_link' style='display: none;' onclick='top.restoreSession()'></a>
 
-        <a href='../birthday_alert/birthday_pop.php?pid=<?php echo attr_url($pid); ?>&user_id=<?php echo attr_url($_SESSION['authId']); ?>' id='birthday_popup' style='display: none;' onclick='top.restoreSession()'></a>
+        <a href='../birthday_alert/birthday_pop.php?pid=<?php echo attr_url($pid); ?>&user_id=<?php echo attr_url($_SESSION['authUserID']); ?>' id='birthday_popup' style='display: none;' onclick='top.restoreSession()'></a>
         <?php
 
         $thisauth = acl_check('patients', 'demo');
@@ -1128,18 +1110,18 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                                 if ($_POST['status_update'] === 'true') {
                                                     unset($_POST['status_update']);
                                                     $showEligibility = true;
-                                                    $ok = requestEligibleTransaction($pid);
+                                                    $ok = EDI_270::requestEligibleTransaction($pid);
                                                     if ($ok === true) {
-                                                        show_eligibility_information($pid, false);
+                                                        EDI_270::show_eligibility_information($pid, false);
                                                     } else {
                                                         echo $ok;
                                                     }
                                                 } else {
-                                                    show_eligibility_information($pid, true);
+                                                    EDI_270::show_eligibility_information($pid, true);
                                                 }
                                                 echo "</form>";
                                             } else {
-                                                show_eligibility_information($pid, true);
+                                                EDI_270::show_eligibility_information($pid, true);
                                             }
                                             echo "</div></div>";
 
@@ -1517,7 +1499,7 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                         }
 
                         if (!$counterFlag) {
-                            echo "&nbsp;&nbsp;" . xlt('None');
+                            echo "&nbsp;&nbsp;" . xlt('None{{Advanced_Directives}}');
                         } ?>
                       </div>
                         <?php
@@ -1952,7 +1934,7 @@ checkSkipConditions();
 
 var isPost = <?php echo js_escape($showEligibility); ?>;
 var listId = '#' + <?php echo js_escape($list_id); ?>;
-$(document).ready(function(){
+$(function(){
     $(listId).addClass("active");
     if(isPost === true) {
         $("#eligibility").click();

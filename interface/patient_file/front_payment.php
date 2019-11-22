@@ -16,7 +16,6 @@ require_once("$srcdir/acl.inc");
 require_once("$srcdir/patient.inc");
 require_once("$srcdir/payment.inc.php");
 require_once("$srcdir/forms.inc");
-require_once("$srcdir/invoice_summary.inc.php");
 require_once("../../custom/code_types.inc.php");
 require_once("$srcdir/options.inc.php");
 require_once("$srcdir/encounter_events.inc.php");
@@ -200,7 +199,7 @@ if ($_POST['form_save']) {
                     }
                 }
 
-        //----------------------------------------------------------------------------------------------------
+                //----------------------------------------------------------------------------------------------------
                   //Fetching the existing code and modifier
                   $ResultSearchNew = sqlStatement(
                       "SELECT * FROM billing LEFT JOIN code_types ON billing.code_type=code_types.ct_key ".
@@ -217,13 +216,13 @@ if ($_POST['form_save']) {
                     $Modifier = '';
                 }
 
-        //----------------------------------------------------------------------------------------------------
+                //----------------------------------------------------------------------------------------------------
                 if ($_REQUEST['radio_type_of_payment'] == 'copay') {//copay saving to ar_session and ar_activity tables
                     $session_id = sqlInsert(
                         "INSERT INTO ar_session (payer_id,user_id,reference,check_date,deposit_date,pay_total," .
                         " global_amount,payment_type,description,patient_id,payment_method,adjustment_code,post_to_date) " .
                         " VALUES ('0',?,?,now(),now(),?,'','patient','COPAY',?,?,'patient_payment',now())",
-                        array($_SESSION['authId'], $form_source, $amount, $form_pid, $form_method)
+                        array($_SESSION['authUserID'], $form_source, $amount, $form_pid, $form_method)
                     );
 
                     sqlBeginTrans();
@@ -231,7 +230,7 @@ if ($_POST['form_save']) {
                     $insrt_id=sqlInsert(
                         "INSERT INTO ar_activity (pid,encounter,sequence_no,code_type,code,modifier,payer_type,post_time,post_user,session_id,pay_amount,account_code)".
                         " VALUES (?,?,?,?,?,?,0,now(),?,?,?,'PCP')",
-                        array($form_pid, $enc, $sequence_no['increment'], $Codetype, $Code, $Modifier, $_SESSION['authId'], $session_id, $amount)
+                        array($form_pid, $enc, $sequence_no['increment'], $Codetype, $Code, $Modifier, $_SESSION['authUserID'], $session_id, $amount)
                     );
                     sqlCommitTrans();
 
@@ -268,11 +267,11 @@ if ($_POST['form_save']) {
                               array(0, $form_pid, $_SESSION['authUserID'], 0, $form_source, $amount, $NameNew, $adjustment_code, $form_method)
                           );
 
-              //--------------------------------------------------------------------------------------------------------------------
+                    //--------------------------------------------------------------------------------------------------------------------
 
                             frontPayment($form_pid, $enc, $form_method, $form_source, 0, $amount, $timestamp);//insertion to 'payments' table.
 
-              //--------------------------------------------------------------------------------------------------------------------
+                    //--------------------------------------------------------------------------------------------------------------------
 
                             $resMoneyGot = sqlStatement(
                                 "SELECT sum(pay_amount) as PatientPay FROM ar_activity where pid =? and " .
@@ -282,7 +281,7 @@ if ($_POST['form_save']) {
                             $rowMoneyGot = sqlFetchArray($resMoneyGot);
                             $Copay = $rowMoneyGot['PatientPay'];
 
-              //--------------------------------------------------------------------------------------------------------------------
+                    //--------------------------------------------------------------------------------------------------------------------
 
                             //Looping the existing code and modifier
                             $ResultSearchNew = sqlStatement(
@@ -369,7 +368,7 @@ if ($_POST['form_save']) {
                                 sqlCommitTrans();
                     }
 
-                  //--------------------------------------------------------------------------------------------------------------------
+                    //--------------------------------------------------------------------------------------------------------------------
                 }//invoice_balance
             }//if ($amount = 0 + $payment)
         }//foreach
@@ -423,24 +422,18 @@ if ($_POST['form_save'] || $_REQUEST['receipt']) {
 
     <?php require($GLOBALS['srcdir'] . "/restoreSession.php"); ?>
 
-$(document).ready(function () {
+$(function() {
     var win = top.printLogSetup ? top : opener.top;
     win.printLogSetup(document.getElementById('printbutton'));
 });
 
 function closeHow(e) {
-    if (top.tab_mode) {
-        top.activateTabByName('pat', true);
-        top.tabCloseByName(window.name);
-    } else {
-        if (opener) {
-            if (opener.name === "left_nav") {
-                dlgclose();
-                return;
-            }
-        }
-        window.history.back();
+    if (opener) {
+        dlgclose();
+        return;
     }
+    top.activateTabByName('pat', true);
+    top.tabCloseByName(window.name);
 }
 
 // This is action to take before printing and is called from restoreSession.php.
@@ -473,16 +466,7 @@ function imdeleted() {
 // This also closes the popup window.
 function toencounter(enc, datestr, topframe) {
     topframe.restoreSession();
-    // Hard-coding of RBot for this purpose is awkward, but since this is a
-    // pop-up and our openemr is left_nav, we have no good clue as to whether
-    // the top frame is more appropriate.
-    if(!top.tab_mode) {
-        topframe.left_nav.forceDual();
-        topframe.left_nav.setEncounter(datestr, enc, '');
-        topframe.left_nav.loadFrame('enc2', 'RBot', 'patient_file/encounter/encounter_top.php?set_encounter=' + encodeURIComponent(enc));
-    } else {
-        top.goToEncounter(enc);
-    }
+    top.goToEncounter(enc);
     if (opener) dlgclose();
 }
 </script>
@@ -565,13 +549,13 @@ function toencounter(enc, datestr, topframe) {
 </body>
 
     <?php
-  //
-  // End of receipt printing logic.
-  //
+    //
+    // End of receipt printing logic.
+    //
 } else {
-  //
-  // Here we display the form for data entry.
-  //
+    //
+    // Here we display the form for data entry.
+    //
     ?>
 <title><?php echo xlt('Record Payment'); ?></title>
 
@@ -605,18 +589,12 @@ function toencounter(enc, datestr, topframe) {
 <script language="JavaScript">
     <?php require($GLOBALS['srcdir'] . "/restoreSession.php"); ?>
 function closeHow(e) {
-    if (top.tab_mode) {
-        top.activateTabByName('pat', true);
-        top.tabCloseByName(window.name);
-    } else {
-       if (opener) {
-            if (opener.name === "left_nav") {
-                dlgclose();
-                return;
-            }
-        }
-        window.history.back();
+    if (opener) {
+        dlgclose();
+        return;
     }
+    top.activateTabByName('pat', true);
+    top.tabCloseByName(window.name);
 }
 function calctotal() {
     var f = document.forms[0];
@@ -1274,10 +1252,10 @@ function make_insurance() {
         <script language="JavaScript">
         calctotal();
         </script>
-    <?php
-}
-?>
     </div><!--end of container div of accept payment i.e the form-->
-    <?php $oemr_ui->oeBelowContainerDiv();?>
+    <?php
+        $oemr_ui->oeBelowContainerDiv();
+} // forms else close
+?>
 </body>
 </html>

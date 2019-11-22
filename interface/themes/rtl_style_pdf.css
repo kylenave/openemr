@@ -1147,8 +1147,14 @@ body {
 .oe-pull-toward {
     float:right !important;
 }
+.oe-pull-toward-unimportant {
+    float:right;
+}
 .oe-pull-away {
     float:left !important;
+}
+.oe-pull-away-unimportant {
+    float:left;
 }
 .oe-margin-toward {
     margin-right:30px;
@@ -1465,27 +1471,6 @@ div.tab table td {
 }
 #encounter_forms .form_header_controls, #encounter_forms .form_header{
     float: none !important;
-}
-
-
-/* /interface/main/main_title.php */
-table#main-title tr td:nth-child(1){
-    text-align: left !important;
-}
-table#main-title tr td:nth-child(2){
-    text-align: center !important;
-}
-table#main-title tr td:nth-child(2) div, table#main-title tr td:nth-child(3) div{
-    float: none !important;
-}
-table#main-title tr td:nth-child(3){
-    text-align: center !important;
-}
-table#main-title tr td:nth-child(4){
-    text-align: right !important;
-}
-table#main-title tr td:nth-child(4) table{
-    float: left;
 }
 
 /* /interface/patient_file/summary/demographics.php */

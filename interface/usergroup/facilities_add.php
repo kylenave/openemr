@@ -226,9 +226,14 @@ function displayAlert()
         </tr>
         <tr>
         <td><span class="text"><?php echo xlt('Website'); ?>: </span></td><td><input type=entry size=20 name=website value=""></td>
-        <td>&nbsp;</td>
+        <td> </td>
         <td><span class="text"><?php echo xlt('Email'); ?>: </span></td><td><input type=entry size=20 name=email value=""></td>
         </tr>
+        <tr>
+            <td><span class="text"><?php echo xlt('IBAN'); ?>: </span></td><td><input type=entry size=20 name=iban value=""></td>
+            <td> </td>
+        </tr>
+
 
         <tr>
           <td><span class='text'><?php echo xlt('Billing Location'); ?>: </span></td><td><input type='checkbox' name='billing_location' value = '1'></td>
@@ -339,10 +344,21 @@ function displayAlert()
                 <input type="entry" size="20" name="mail_zip" value="<?php echo attr($facility["mail_zip"]) ?>">
             </td>
         </tr>
+
+
+        <tr>
+            <td>
+                <label><?php echo xlt('Info'); ?>: </label>
+            </td>
+            <td>
+                <textarea style="width: 97.8%;" size="20" name="info" ><?php echo attr($facility["info"]) ?></textarea>
+            </td>
+        </tr>
         <tr height="25" style="valign:bottom;">
             <td><font class="mandatory">*</font><span class="text"> <?php echo xlt('Required'); ?></span></td><td>&nbsp;</td><td>&nbsp;</td>
             <td>&nbsp;</td><td>&nbsp;</td>
         </tr>
+
     </table>
 </form>
 

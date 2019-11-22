@@ -379,12 +379,40 @@ class FeeSheet
 
             if (!isset($args['fee'])) {
                 // Fees come from the prices table now.
-                $query = "SELECT pr_price FROM prices WHERE " .
-                "pr_id = ? AND pr_selector = '' AND pr_level = ? " .
-                "LIMIT 1";
+                $query = "SELECT pr_price, lo.option_id AS pr_level, lo.notes FROM list_options lo " .
+                    " LEFT OUTER JOIN prices p ON lo.option_id=p.pr_level AND pr_id = ? AND pr_selector = '' " .
+                    " WHERE lo.list_id='pricelevel' " .
+                    "ORDER BY seq";
                 // echo "\n<!-- $query -->\n"; // debugging
-                $prrow = sqlQuery($query, array($codes_id, $pricelevel));
-                $fee = empty($prrow) ? 0 : $prrow['pr_price'];
+
+                $prdefault = null;
+                $prrow = null;
+                $prrecordset = sqlStatement($query, array($codes_id));
+                while ($row = sqlFetchArray($prrecordset)) {
+                    if (empty($prdefault)) {
+                        $prdefault = $row;
+                    }
+
+                    if ($row['pr_level'] === $pricelevel) {
+                        $prrow = $row;
+                    }
+                }
+
+                $fee = 0;
+                if (!empty($prrow)) {
+                    $fee = $prrow['pr_price'];
+
+                    // if percent-based pricing is enabled...
+                    if ($GLOBALS['enable_percent_pricing']) {
+                        // if this price level is a percentage, calculate price from default price
+                        if (!empty($prrow['notes']) && strpos($prrow['notes'], '%') > -1 && !empty($prdefault)) {
+                            $percent = intval(str_replace('%', '', $prrow['notes']));
+                            if ($percent > 0) {
+                                $fee = $prdefault['pr_price'] * ((100 - $percent) / 100);
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -520,11 +548,39 @@ class FeeSheet
         // If fee is not provided, get it from the prices table.
         // It is assumed in this case that units will match what is in the product template.
         if (!isset($args['fee'])) {
-            $query = "SELECT pr_price FROM prices WHERE " .
-            "pr_id = ? AND pr_selector = ? AND pr_level = ? " .
-            "LIMIT 1";
-            $prrow = sqlQuery($query, array($drug_id, $selector, $pricelevel));
-            $fee = empty($prrow) ? 0 : $prrow['pr_price'];
+            $query = "SELECT pr_price, lo.option_id AS pr_level, lo.notes FROM list_options lo " .
+                " LEFT OUTER JOIN prices p ON lo.option_id=p.pr_level AND pr_id = ? AND pr_selector = ? " .
+                " WHERE lo.list_id='pricelevel' " .
+                "ORDER BY seq";
+
+            $prdefault = null;
+            $prrow = null;
+            $prrecordset = sqlStatement($query, array($drug_id, $selector));
+            while ($row = sqlFetchArray($prrecordset)) {
+                if (empty($prdefault)) {
+                    $prdefault = $row;
+                }
+
+                if ($row['pr_level'] === $pricelevel) {
+                    $prrow = $row;
+                }
+            }
+
+            $fee = 0;
+            if (!empty($prrow)) {
+                $fee = $prrow['pr_price'];
+
+                // if percent-based pricing is enabled...
+                if ($GLOBALS['enable_percent_pricing']) {
+                    // if this price level is a percentage, calculate price from default price
+                    if (!empty($prrow['notes']) && strpos($prrow['notes'], '%') > -1 && !empty($prdefault)) {
+                        $percent = intval(str_replace('%', '', $prrow['notes']));
+                        if ($percent > 0) {
+                            $fee = $prdefault['pr_price'] * ((100 - $percent) / 100);
+                        }
+                    }
+                }
+            }
         }
 
         $fee = sprintf('%01.2f', $fee);
@@ -780,7 +836,7 @@ class FeeSheet
                             "(payer_id, user_id, pay_total, payment_type, description, patient_id, payment_method, " .
                             "adjustment_code, post_to_date) " .
                             "VALUES ('0',?,?,'patient','COPAY',?,'','patient_payment',now())",
-                            array($_SESSION['authId'], $fee, $this->pid)
+                            array($_SESSION['authUserID'], $fee, $this->pid)
                         );
                         sqlBeginTrans();
                         $sequence_no = sqlQuery("SELECT IFNULL(MAX(sequence_no),0) + 1 AS increment FROM ar_activity WHERE " .
@@ -790,7 +846,7 @@ class FeeSheet
                             "payer_type, post_time, post_user, session_id, " .
                             "pay_amount, account_code) VALUES (?,?,?,?,?,?,0,now(),?,?,?,'PCP')",
                             array($this->pid, $this->encounter, $sequence_no['increment'], $ct0, $cod0, $mod0,
-                            $_SESSION['authId'],
+                                $_SESSION['authUserID'],
                             $session_id,
                             $fee)
                         );
@@ -805,12 +861,12 @@ class FeeSheet
                         if ($fee != $res_amount['pay_amount']) {
                               sqlStatement(
                                   "UPDATE ar_session SET user_id=?,pay_total=?,modified_time=now(),post_to_date=now() WHERE session_id=?",
-                                  array($_SESSION['authId'], $fee, $session_id)
+                                  array($_SESSION['authUserID'], $fee, $session_id)
                               );
                                   sqlStatement(
                                       "UPDATE ar_activity SET code_type=?, code=?, modifier=?, post_user=?, post_time=now(),".
                                       "pay_amount=?, modified_time=now() WHERE pid=? AND encounter=? AND account_code='PCP' AND session_id=?",
-                                      array($ct0, $cod0, $mod0, $_SESSION['authId'], $fee, $this->pid, $this->encounter, $session_id)
+                                      array($ct0, $cod0, $mod0, $_SESSION['authUserID'], $fee, $this->pid, $this->encounter, $session_id)
                                   );
                         }
                     }

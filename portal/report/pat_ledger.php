@@ -74,7 +74,7 @@ function User_Id_Look($thisField)
     $rlist= sqlStatement("SELECT lname, fname, mname FROM users WHERE id=?", array($thisField));
     $rrow= sqlFetchArray($rlist);
     if ($rrow) {
-        $ret = $rrow{'lname'}.', '.$rrow{'fname'}.' '.$rrow{'mname'};
+        $ret = $rrow['lname'].', '.$rrow['fname'].' '.$rrow['mname'];
     }
 
     return $ret;
@@ -96,7 +96,7 @@ function List_Look($thisData, $thisList)
         "AND option_id=?", array($thisList, $thisData));
     if ($fres) {
         $rret=sqlFetchArray($fres);
-        $dispValue= xl_list_label($rret{'title'});
+        $dispValue= xl_list_label($rret['title']);
         if ($thisList == 'occurrence' && $dispValue == '') {
             $dispValue = xl('Unknown or N/A');
         }
@@ -389,7 +389,7 @@ function checkSubmit() {
         <input type='text' class='datepicker form-control' name='form_from_date' id="form_from_date" size='10' value='<?php echo attr($form_from_date) ?>' title='yyyy-mm-dd'>
       </td>
       <td class='control-label'>
-          &nbsp;&nbsp;&nbsp;&nbsp;<?php echo xlt('To'); ?>:
+          &nbsp;&nbsp;&nbsp;&nbsp;<?php echo xlt('To{{Range}}'); ?>:
       </td>
       <td>
         <input type='text' class='datepicker form-control' name='form_to_date' id="form_to_date" size='10' value='<?php echo attr($form_to_date) ?>' title='yyyy-mm-dd'>
@@ -510,9 +510,9 @@ function checkSubmit() {
                     if (count($credits) > 0) {
                         if (!$hdr_printed) {
                             PrintEncHeader(
-                                $prev_row{'date'},
-                                $prev_row{'reason'},
-                                $prev_row{'provider_id'}
+                                $prev_row['date'],
+                                $prev_row['reason'],
+                                $prev_row['provider_id']
                             );
                         }
 
@@ -529,13 +529,13 @@ function checkSubmit() {
                 $enc_units = $enc_chg = $enc_pmt = $enc_adj = $enc_bal = 0;
             }
 
-            if ($erow{'id'}) {
+            if ($erow['id']) {
                 // Now print an encounter heading line -
                 if (!$hdr_printed) {
                     PrintEncHeader(
-                        $erow{'date'},
-                        $erow{'reason'},
-                        $erow{'provider_id'}
+                        $erow['date'],
+                        $erow['reason'],
+                        $erow['provider_id']
                     );
                     $hdr_printed = true;
                 }
@@ -572,7 +572,7 @@ function checkSubmit() {
                 echo $print;
             }
 
-            $prev_encounter_id = $erow{'encounter'};
+            $prev_encounter_id = $erow['encounter'];
             $prev_row = $erow;
         }
 
@@ -581,9 +581,9 @@ function checkSubmit() {
             if (count($credits) > 0) {
                 if (!$hdr_printed) {
                     PrintEncHeader(
-                        $prev_row{'date'},
-                        $prev_row{'reason'},
-                        $prev_row{'provider_id'}
+                        $prev_row['date'],
+                        $prev_row['reason'],
+                        $prev_row['provider_id']
                     );
                 }
 
@@ -626,7 +626,7 @@ function checkSubmit() {
                         $events = fetchNextXAppts($current_date2, $pid);
                         $next_appoint_date = oeFormatShortDate($events[0]['pc_eventDate']);
                         $next_appoint_time = substr($events[0]['pc_startTime'], 0, 5);
-                if (strlen(umname) != 0) {
+                if (strlen($events[0]['umname']) != 0) {
                     $next_appoint_provider = $events[0]['ufname'] . ' ' . $events[0]['umname'] . ' ' .  $events[0]['ulname'];
                 } else {
                     $next_appoint_provider = $events[0]['ufname'] . ' ' .  $events[0]['ulname'];

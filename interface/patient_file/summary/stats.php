@@ -101,7 +101,7 @@ foreach ($ISSUE_TYPES as $key => $arr) {
             if (sqlNumRows($res) == 0) {
                 ?>
   <tr class=text>
-<td><?php echo xlt('None'); ?></td>
+<td><?php echo xlt('None{{Prescriptions}}'); ?></td>
   </tr>
                 <?php
             }
@@ -183,7 +183,7 @@ if ($row_currentMed['size'] > 0) {
         if (sqlNumRows($pres) == 0) {
             if (getListTouch($pid, $key)) {
                 // Data entry has happened to this type, so can display an explicit None.
-                echo "  <tr><td colspan='$numcols' class='text'>&nbsp;&nbsp;" . xlt('None') . "</td></tr>\n";
+                echo "  <tr><td colspan='$numcols' class='text'>&nbsp;&nbsp;" . xlt('None{{Issues}}') . "</td></tr>\n";
             } else {
                 // Data entry has not happened to this type, so show 'Nothing Recorded"
                 echo "  <tr><td colspan='$numcols' class='text'>&nbsp;&nbsp;" . xlt('Nothing Recorded') . "</td></tr>\n";
@@ -306,7 +306,7 @@ foreach (array('treatment_protocols','injury_log') as $formname) {
 
     if (sqlNumRows($result) == 0) {
         echo " <table><tr>\n";
-        echo "  <td colspan='$numcols' class='text'>&nbsp;&nbsp;" . xlt('None') . "</td>\n";
+        echo "  <td colspan='$numcols' class='text'>&nbsp;&nbsp;" . xlt('None{{Immunizations}}') . "</td>\n";
         echo " </tr></table>\n";
     }
 
@@ -314,7 +314,7 @@ foreach (array('treatment_protocols','injury_log') as $formname) {
         echo "&nbsp;&nbsp;";
         echo "<a class='link'";
         echo "' href='javascript:;' onclick='javascript:load_location(" . attr_js("immunizations.php?mode=edit&id=".urlencode($row['id'])."&csrf_token_form=".urlencode(CsrfUtils::collectCsrfToken())) . ")'>" .
-        text($row{'immunization_data'});
+        text($row['immunization_data']);
 
         // Figure out which name to use (ie. from cvx list or from the custom list)
         if ($GLOBALS['use_custom_immun_list']) {
@@ -368,7 +368,7 @@ foreach (array('treatment_protocols','injury_log') as $formname) {
         if (sqlNumRows($res)==0) {
             ?>
     <tr class=text>
-        <td><?php echo xlt('None');?></td>
+        <td><?php echo xlt('None{{Prescriptions}}');?></td>
     </tr>
             <?php
         }

@@ -44,7 +44,7 @@ $MedEx = new MedExApi\MedEx('MedExBank.com');
 
 if ($GLOBALS['medex_enable'] == '1') {
     if ($_REQUEST['SMS_bot']) {
-        $result = $MedEx->login('1');
+        $result = $MedEx->login('');
         $MedEx->display->SMS_bot($result);
         exit();
     }
@@ -156,13 +156,13 @@ if (!empty($_REQUEST['go'])) { ?>
         echo "<title>" . xlt('Recall Board') . "</title></head><body class='body_top'>";
         $MedEx->display->display_recalls($logged_in);
     } elseif ((($_REQUEST['go'] == "setup") || ($_REQUEST['go'] == 'Preferences')) && ($logged_in)) {
-        echo "<title>MedEx" . xlt('Preferences') . "</title></head><body class='body_top'>";
+        echo "<title>MedEx: " . xlt('Preferences') . "</title></head><body class='body_top'>";
         $MedEx->display->preferences();
     } elseif ($_REQUEST['go'] == 'icons') {
-        echo "<title>MedEx" . xlt('Icons') . "</title></head><body class='body_top'>";
+        echo "<title>MedEx: " . xlt('Icons') . "&#x24B8;</title></head><body class='body_top'>";
         $MedEx->display->icon_template();
     } elseif ($_REQUEST['go'] == 'SMS_bot') {
-        echo "<title>MedEx" . xlt('SMS') . "</title></head><body class='body_top'>";
+        echo "<title>MedEx: SMS Bot&#x24B8;</title></head><body class='body_top'>";
         $MedEx->display->SMS_bot($logged_in);
         exit;
     } else {
@@ -581,7 +581,7 @@ if (!empty($_REQUEST['go'])) { ?>
 
                                             if ($noteid) {
                                                 $body = preg_replace('/(:\d{2}\s\()' . $result['pid'] . '(\sto\s)/', '${1}' . $patientname . '${2}', $body);
-                                                $body = preg_replace('/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}\s\([^)(]+\s)(to)(\s[^)(]+\))/', '${1}' . xl('to') . '${3}', $body);
+                                                $body = preg_replace('/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}\s\([^)(]+\s)(to)(\s[^)(]+\))/', '${1}' . xl('to{{Destination}}') . '${3}', $body);
                                                 $body =nl2br(text(oeFormatPatientNote($body)));
                                                 echo "<div class='text oe-margin-t-3' style='background-color:white; color: gray; border:1px solid #999; padding: 5px;'>" . $body . "</div>";
                                             }
@@ -1064,19 +1064,11 @@ if (!empty($_REQUEST['go'])) { ?>
             });
             parent.left_nav.setPatient(pname, pid, pubpid, '', str_dob);
             parent.left_nav.setPatientEncounter(EncounterIdArray, EncounterDateArray, CalendarCategoryArray);
-            <?php if ($GLOBALS['new_tabs_layout']) { ?>
             var docurl = '../controller.php?document&view' + "&patient_id=" + encodeURIComponent(pid) + "&document_id=" + encodeURIComponent(doc_id) + "&";
             var paturl = 'patient_file/summary/demographics.php?pid=' + encodeURIComponent(pid);
             parent.left_nav.loadFrame('dem1', 'pat', paturl);
             parent.left_nav.loadFrame('doc0', 'enc', docurl);
             top.activateTabByName('enc', true);
-            <?php } else { ?>
-            var docurl = '<?php  echo $GLOBALS['webroot'] . "/controller.php?document&view"; ?>' + "&patient_id=" + encodeURIComponent(pid) + "&document_id=" + encodeURIComponent(doc_id) + "&";
-            var paturl = '<?php  echo $GLOBALS['webroot'] . "/interface/patient_file/summary/demographics.php?pid="; ?>' + encodeURIComponent(pid);
-            var othername = (window.name === 'RTop') ? 'RBot' : 'RTop';
-            parent.frames[othername].location.href = paturl;
-            location.href = docurl;
-            <?php } ?>
         }
 
         // This is for callback by the find-patient popup.

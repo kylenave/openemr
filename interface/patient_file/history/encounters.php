@@ -17,13 +17,13 @@ require_once("$srcdir/forms.inc");
 require_once("$srcdir/patient.inc");
 require_once("$srcdir/lists.inc");
 require_once("$srcdir/acl.inc");
-require_once("$srcdir/invoice_summary.inc.php");
 require_once("../../../custom/code_types.inc.php");
 if ($GLOBALS['enable_group_therapy']) {
     require_once("$srcdir/group.inc");
 }
 
 use OpenEMR\Billing\BillingUtilities;
+use OpenEMR\Billing\InvoiceSummary;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
 
@@ -442,8 +442,8 @@ while ($result4 = sqlFetchArray($res4)) {
 
         $raw_encounter_date = '';
 
-        $raw_encounter_date = date("Y-m-d", strtotime($result4{"date"}));
-        $encounter_date = date("D F jS", strtotime($result4{"date"}));
+        $raw_encounter_date = date("Y-m-d", strtotime($result4["date"]));
+        $encounter_date = date("D F jS", strtotime($result4["date"]));
 
         //fetch acl for given pc_catid
         $postCalendarCategoryACO = fetchPostCalendarCategoryACO($result4['pc_catid']);
@@ -455,8 +455,8 @@ while ($result4 = sqlFetchArray($res4)) {
     }
 
         // if ($auth_notes_a || ($auth_notes && $result4['user'] == $_SESSION['authUser']))
-    if (!empty($result4{"reason"})) {
-        $reason_string .= text($result4{"reason"}) . "<br>\n";
+    if (!empty($result4["reason"])) {
+        $reason_string .= text($result4["reason"]) . "<br>\n";
     }
 
         // else
@@ -646,7 +646,7 @@ while ($result4 = sqlFetchArray($res4)) {
                                 "pid = ? AND encounter = ?", array($pid,$result4['encounter']));
                     $arid = 0 + $tmp['id'];
                 if ($arid) {
-                    $arinvoice = ar_get_invoice_summary($pid, $result4['encounter'], true);
+                    $arinvoice = InvoiceSummary::ar_get_invoice_summary($pid, $result4['encounter'], true);
                 }
                 if ($arid) {
                     $arlinkbeg = "<a onclick='editInvoice(event, " . attr_js($arid) . ")" . "'" . " class='text' style='color:#00cc00'>";
@@ -762,25 +762,25 @@ while ($result4 = sqlFetchArray($res4)) {
         if ($auth_demo) {
             $responsible = -1;
             if ($arid) {
-                    $responsible = ar_responsible_party($pid, $result4['encounter']);
+                    $responsible = InvoiceSummary::ar_responsible_party($pid, $result4['encounter']);
             }
             $subresult5 = getInsuranceDataByDate($pid, $raw_encounter_date, "primary");
-            if ($subresult5 && $subresult5{"provider_name"}) {
+            if ($subresult5 && $subresult5["provider_name"]) {
                 $style = $responsible == 1 ? " style='color:red'" : "";
                 $insured = "<span class='text'$style>&nbsp;" . xlt('Primary') . ": " .
-                text($subresult5{"provider_name"}) . "</span><br>\n";
+                text($subresult5["provider_name"]) . "</span><br>\n";
             }
             $subresult6 = getInsuranceDataByDate($pid, $raw_encounter_date, "secondary");
-            if ($subresult6 && $subresult6{"provider_name"}) {
+            if ($subresult6 && $subresult6["provider_name"]) {
                 $style = $responsible == 2 ? " style='color:red'" : "";
                 $insured .= "<span class='text'$style>&nbsp;" . xlt('Secondary') . ": " .
-                text($subresult6{"provider_name"}) . "</span><br>\n";
+                text($subresult6["provider_name"]) . "</span><br>\n";
             }
             $subresult7 = getInsuranceDataByDate($pid, $raw_encounter_date, "tertiary");
-            if ($subresult6 && $subresult7{"provider_name"}) {
+            if ($subresult6 && $subresult7["provider_name"]) {
                 $style = $responsible == 3 ? " style='color:red'" : "";
                 $insured .= "<span class='text'$style>&nbsp;" . xlt('Tertiary') . ": " .
-                text($subresult7{"provider_name"}) . "</span><br>\n";
+                text($subresult7["provider_name"]) . "</span><br>\n";
             }
             if ($responsible == 0) {
                 $insured .= "<span class='text' style='color:red'>&nbsp;" . xlt('Patient') .
@@ -824,7 +824,7 @@ while ($drow /* && $count <= $N */) {
 <script language="javascript">
 // jQuery stuff to make the page a little easier to use
 
-$(document).ready(function(){
+$(function() {
     $(".encrow").on("mouseover", function() { $(this).toggleClass("highlight"); });
     $(".encrow").on("mouseout", function() { $(this).toggleClass("highlight"); });
     $(".encrow").on("click", function() { toencounter(this.id); });

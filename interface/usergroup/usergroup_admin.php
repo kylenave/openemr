@@ -2,13 +2,13 @@
 /**
  * This script Assign acl 'Emergency login'.
  *
- * @package OpenEMR
- * @link    http://www.open-emr.org
- * @author  Roberto Vasquez <robertogagliotta@gmail.com>
- * @author  Brady Miller <brady.g.miller@gmail.com>
+ * @package   OpenEMR
+ * @link      http://www.open-emr.org
+ * @author    Roberto Vasquez <robertogagliotta@gmail.com>
+ * @author    Brady Miller <brady.g.miller@gmail.com>
  * @copyright Copyright (c) 2015 Roberto Vasquez <robertogagliotta@gmail.com>
  * @copyright Copyright (c) 2017-2019 Brady Miller <brady.g.miller@gmail.com>
- * @license https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
+ * @license   https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
 
 
@@ -16,6 +16,7 @@ require_once("../globals.php");
 require_once("../../library/acl.inc");
 require_once("$srcdir/auth.inc");
 
+use OpenEMR\Common\Auth\AuthUtils;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
 use OpenEMR\Services\UserService;
@@ -167,14 +168,11 @@ if (isset($_POST["privatemode"]) && $_POST["privatemode"] =="user_admin") {
         }
 
         if ($_POST["adminPass"] && $_POST["clearPass"]) {
-              require_once("$srcdir/authentication/password_change.php");
-              $clearAdminPass=$_POST['adminPass'];
-              $clearUserPass=$_POST['clearPass'];
-              $password_err_msg="";
-              $success=update_password($_SESSION['authId'], $_POST['id'], $clearAdminPass, $clearUserPass, $password_err_msg);
+            $authUtilsUpdatePassword = new AuthUtils();
+            $success = $authUtilsUpdatePassword->updatePassword($_SESSION['authUserID'], $_POST['id'], $_POST['adminPass'], $_POST['clearPass']);
             if (!$success) {
-                error_log(errorLogEscape($password_err_msg));
-                $alertmsg.=$password_err_msg;
+                error_log(errorLogEscape($authUtilsUpdatePassword->getErrorMessage()));
+                $alertmsg .= $authUtilsUpdatePassword->getErrorMessage();
             }
         }
 
@@ -223,7 +221,7 @@ if (isset($_POST["privatemode"]) && $_POST["privatemode"] =="user_admin") {
         }
 
         if ($_POST["erxprid"]) {
-            sqlStatement("update users set weno_prov_id = '$erxprid' where id = ? ", array($_POST["erxprid"], $_POST["id"]));
+            sqlStatement("update users set weno_prov_id = ? where id = ? ", array($_POST["erxprid"], $_POST["id"]));
         }
 
         // Set the access control group of user
@@ -256,14 +254,6 @@ if (isset($_POST["mode"])) {
         }
 
         if ($doit == true) {
-            require_once("$srcdir/authentication/password_change.php");
-
-          //if password expiration option is enabled,  calculate the expiration date of the password
-            if ($GLOBALS['password_expiration_days'] != 0) {
-                $exp_days = $GLOBALS['password_expiration_days'];
-                $exp_date = date('Y-m-d', strtotime("+$exp_days days"));
-            }
-
             $insertUserSQL=
             "insert into users set " .
             "username = '"         . add_escape_custom(trim((isset($_POST['rumple']) ? $_POST['rumple'] : ''))) .
@@ -290,26 +280,20 @@ if (isset($_POST["mode"])) {
             "', default_warehouse = '" . add_escape_custom(trim((isset($_POST['default_warehouse']) ? $_POST['default_warehouse'] : ''))) .
             "', irnpool = '"       . add_escape_custom(trim((isset($_POST['irnpool']) ? $_POST['irnpool'] : ''))) .
             "', calendar = '"      . add_escape_custom($calvar) .
-            "', pwd_expiration_date = '" . add_escape_custom(trim($exp_date)) .
             "'";
 
-            $clearAdminPass=$_POST['adminPass'];
-            $clearUserPass=$_POST['stiltskin'];
-            $password_err_msg="";
-            $prov_id="";
-            $success = update_password(
-                $_SESSION['authId'],
+            $authUtilsNewPassword = new AuthUtils();
+            $success = $authUtilsNewPassword->updatePassword(
+                $_SESSION['authUserID'],
                 0,
-                $clearAdminPass,
-                $clearUserPass,
-                $password_err_msg,
+                $_POST['adminPass'],
+                $_POST['stiltskin'],
                 true,
                 $insertUserSQL,
-                trim((isset($_POST['rumple']) ? $_POST['rumple'] : '')),
-                $prov_id
+                trim((isset($_POST['rumple']) ? $_POST['rumple'] : ''))
             );
-            error_log(errorLogEscape($password_err_msg));
-            $alertmsg .=$password_err_msg;
+            error_log(errorLogEscape($authUtilsNewPassword->getErrorMessage()));
+            $alertmsg .=$authUtilsNewPassword->getErrorMessage();
             if ($success) {
                 //set the facility name from the selected facility_id
                 sqlStatement(
@@ -359,7 +343,7 @@ if (isset($_POST["mode"])) {
 
         $doit = 1;
         foreach ($result as $iter) {
-            if ($doit == 1 && $iter{"name"} == (trim((isset($_POST['groupname']) ? $_POST['groupname'] : ''))) && $iter{"user"} == (trim((isset($_POST['rumple']) ? $_POST['rumple'] : '')))) {
+            if ($doit == 1 && $iter["name"] == (trim((isset($_POST['groupname']) ? $_POST['groupname'] : ''))) && $iter["user"] == (trim((isset($_POST['rumple']) ? $_POST['rumple'] : '')))) {
                 $doit--;
             }
         }
@@ -394,7 +378,7 @@ if (isset($_GET["mode"])) {
     // reference users to make sure this user is not referenced!
 
     foreach($result as $iter) {
-      sqlStatement("delete from `groups` where user = '" . $iter{"username"} . "'");
+      sqlStatement("delete from `groups` where user = '" . $iter["username"] . "'");
     }
     sqlStatement("delete from users where id = '" . $_GET["id"] . "'");
   }
@@ -407,7 +391,7 @@ if (isset($_GET["mode"])) {
         }
 
         foreach ($result as $iter) {
-            $un = $iter{"user"};
+            $un = $iter["user"];
         }
 
         $res = sqlStatement("select name, user from `groups` where user = ? " .
@@ -512,6 +496,13 @@ function authorized_clicked() {
                         <th><?php echo xlt('Additional Info'); ?></th>
                         <th><?php echo xlt('Authorized'); ?></th>
                         <th><?php echo xlt('MFA'); ?></th>
+                        <?php
+                        $checkPassExp = false;
+                        if (($GLOBALS['password_expiration_days'] != 0) && (check_integer($GLOBALS['password_expiration_days'])) && (check_integer($GLOBALS['password_grace_time']))) {
+                            $checkPassExp = true;
+                            echo '<th>' . xlt('Password Expiration') . '</th>';
+                        }
+                        ?>
                     </tr>
                     <tbody>
                         <?php
@@ -527,10 +518,10 @@ function authorized_clicked() {
                         }
 
                         foreach ($result4 as $iter) {
-                            if ($iter{"authorized"}) {
-                                $iter{"authorized"} = xl('yes');
+                            if ($iter["authorized"]) {
+                                $iter["authorized"] = xl('yes');
                             } else {
-                                $iter{"authorized"} = xl('no');
+                                $iter["authorized"] = xl('no');
                             }
 
                             $mfa = sqlQuery(
@@ -544,13 +535,34 @@ function authorized_clicked() {
                                 $isMfa = xl('no');
                             }
 
+                            if ($checkPassExp) {
+                                $current_date = date("Y-m-d");
+                                $userSecure = privQuery("SELECT `last_update_password` FROM `users_secure` WHERE `id` = ?", [$iter['id']]);
+                                $pwd_expires = date("Y-m-d", strtotime($userSecure['last_update_password'] . "+" . $GLOBALS['password_expiration_days'] . " days"));
+                                $grace_time = date("Y-m-d", strtotime($pwd_expires . "+".$GLOBALS['password_grace_time'] ." days"));
+                            }
+
                             print "<tr>
-                                <td><b><a href='user_admin.php?id=" . attr_url($iter{"id"}) . "&csrf_token_form=" . attr_url(CsrfUtils::collectCsrfToken()) .
-                                "' class='medium_modal' onclick='top.restoreSession()'>" . text($iter{"username"}) . "</a></b>" ."&nbsp;</td>
-                                <td>" . text($iter{"fname"}) . ' ' . text($iter{"lname"}) ."&nbsp;</td>
-                                <td>" . text($iter{"info"}) . "&nbsp;</td>
-                                <td align='left'><span>" .text($iter{"authorized"}) . "</td>
+                                <td><b><a href='user_admin.php?id=" . attr_url($iter["id"]) . "&csrf_token_form=" . attr_url(CsrfUtils::collectCsrfToken()) .
+                                "' class='medium_modal' onclick='top.restoreSession()'>" . text($iter["username"]) . "</a></b>" ."&nbsp;</td>
+                                <td>" . text($iter["fname"]) . ' ' . text($iter["lname"]) ."&nbsp;</td>
+                                <td>" . text($iter["info"]) . "&nbsp;</td>
+                                <td align='left'><span>" .text($iter["authorized"]) . "</td>
                                 <td align='left'><span>" .text($isMfa) . "</td>";
+                            if ($checkPassExp) {
+                                echo '<td>';
+                                if (AuthUtils::useActiveDirectory($iter["username"])) {
+                                    // LDAP bypasses expired password mechanism
+                                    echo '<div class="alert alert-success" role="alert">' . xlt('Not Applicable') . '</div>';
+                                } else if (strtotime($current_date) > strtotime($grace_time)) {
+                                    echo '<div class="alert alert-danger" role="alert">' . xlt('Expired') . '</div>';
+                                } else if (strtotime($current_date) > strtotime($pwd_expires)) {
+                                    echo '<div class="alert alert-warning" role="alert">' . xlt('Grace Period') . '</div>';
+                                } else {
+                                    echo '<div class="alert alert-success" role="alert">' . text(oeFormatShortDate($pwd_expires)) . '</div>';
+                                }
+                                echo '</td>';
+                            }
                             print "</tr>\n";
                         }
                         ?>
@@ -565,9 +577,9 @@ function authorized_clicked() {
                 }
 
                 foreach ($result5 as $iter) {
-                    $grouplist{$iter{"name"}} .= text($iter{"user"}) .
+                    $grouplist[$iter["name"]] .= text($iter["user"]) .
                         "(<a class='link_submit' href='usergroup_admin.php?mode=delete_group&id=" .
-                        attr_url($iter{"id"}) . "&csrf_token_form=" . attr_url(CsrfUtils::collectCsrfToken()) ."' onclick='top.restoreSession()'>" . xlt('Remove') . "</a>), ";
+                        attr_url($iter["id"]) . "&csrf_token_form=" . attr_url(CsrfUtils::collectCsrfToken()) ."' onclick='top.restoreSession()'>" . xlt('Remove') . "</a>), ";
                 }
 
                 foreach ($grouplist as $groupname => $list) {
